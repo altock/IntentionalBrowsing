@@ -422,31 +422,31 @@ export interface RedirectOption {
 
 export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
   twitter: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
     { value: 'following-tab', label: 'Following tab' },
     { value: '/i/chat', label: 'Messages' },
   ],
   reddit: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
   ],
   youtube: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
     { value: '/feed/subscriptions', label: 'Subscriptions' },
   ],
   instagram: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
     { value: '/direct/inbox/', label: 'Messages' },
   ],
   facebook: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
     { value: '/messages/', label: 'Messages' },
   ],
   linkedin: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
     { value: '/messaging/', label: 'Messages' },
   ],
   tiktok: [
-    { value: 'blocked', label: 'Block' },
+    { value: 'blocked', label: 'Block page' },
     { value: '/inbox', label: 'Messages' },
   ],
 };

@@ -22,10 +22,53 @@ const RULE_SET_IDS: Record<PlatformId, string> = {
 };
 
 /**
- * Dynamic rule IDs for Twitter (since redirect target is configurable)
+ * Dynamic rule IDs for platforms with configurable redirect targets
  * Using IDs 10001+ to avoid conflicts with static rules
+ * Each platform gets a range of 100 IDs
  */
-const TWITTER_DYNAMIC_RULE_IDS = [10001, 10002];
+const DYNAMIC_RULE_ID_BASE: Record<PlatformId, number> = {
+  twitter: 10000,
+  youtube: 10100,
+  instagram: 10200,
+  facebook: 10300,
+  linkedin: 10400,
+  tiktok: 10500,
+  reddit: 10600, // Reddit only has 'blocked' option, but include for consistency
+};
+
+/**
+ * URL patterns for blocking each platform's feed/home pages
+ */
+const PLATFORM_BLOCK_PATTERNS: Record<PlatformId, string[]> = {
+  twitter: [
+    '^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/?(?:\\?.*)?$',
+    '^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/home(?:\\?.*)?$',
+  ],
+  youtube: [
+    '^https?://(?:www\\.|m\\.)?youtube\\.com/?(?:\\?.*)?$',
+    '^https?://(?:www\\.|m\\.)?youtube\\.com/shorts(?:/.*)?(?:\\?.*)?$',
+    '^https?://(?:www\\.|m\\.)?youtube\\.com/feed/trending(?:\\?.*)?$',
+    '^https?://(?:www\\.|m\\.)?youtube\\.com/feed/explore(?:\\?.*)?$',
+  ],
+  instagram: [
+    '^https?://(?:www\\.)?instagram\\.com/?(?:\\?.*)?$',
+    '^https?://(?:www\\.)?instagram\\.com/explore(?:/.*)?(?:\\?.*)?$',
+    '^https?://(?:www\\.)?instagram\\.com/reels(?:/.*)?(?:\\?.*)?$',
+  ],
+  facebook: [
+    '^https?://(?:www\\.|m\\.)?facebook\\.com/?(?:\\?.*)?$',
+    '^https?://(?:www\\.|m\\.)?facebook\\.com/watch(?:/.*)?(?:\\?.*)?$',
+    '^https?://(?:www\\.|m\\.)?facebook\\.com/reels(?:/.*)?(?:\\?.*)?$',
+  ],
+  linkedin: [
+    '^https?://(?:www\\.)?linkedin\\.com/?(?:\\?.*)?$',
+    '^https?://(?:www\\.)?linkedin\\.com/feed(?:/.*)?(?:\\?.*)?$',
+  ],
+  tiktok: [
+    '^https?://(?:www\\.)?tiktok\\.com(?:/.*)?(?:\\?.*)?$',
+  ],
+  reddit: [], // Reddit uses static rules only
+};
 
 /**
  * Initialize the extension
@@ -68,68 +111,62 @@ async function syncRuleStates(config: StorageSchema): Promise<void> {
     console.error('[IntentionalBrowsing] Failed to sync rule states:', error);
   }
 
-  // Sync Twitter dynamic rules (since redirect target is configurable)
-  await syncTwitterDynamicRules(config);
+  // Sync dynamic rules for all platforms with configurable redirect targets
+  await syncDynamicBlockRules(config);
 }
 
 /**
- * Sync Twitter's dynamic rules based on redirect target setting
- * Uses dynamic rules because the redirect destination is user-configurable
+ * Sync dynamic block rules for all platforms
+ * Uses dynamic rules because redirect destinations are user-configurable
  */
-async function syncTwitterDynamicRules(config: StorageSchema): Promise<void> {
-  const twitterConfig = config.platforms.twitter;
-  const shouldBlock = config.globalEnabled &&
-                      twitterConfig.enabled &&
-                      twitterConfig.redirectTarget === 'blocked';
+async function syncDynamicBlockRules(config: StorageSchema): Promise<void> {
+  const allRulesToAdd: chrome.declarativeNetRequest.Rule[] = [];
+  const allRuleIdsToRemove: number[] = [];
 
-  try {
+  for (const platformId of Object.keys(PLATFORM_BLOCK_PATTERNS) as PlatformId[]) {
+    const patterns = PLATFORM_BLOCK_PATTERNS[platformId];
+    if (patterns.length === 0) continue; // Skip platforms with no patterns (e.g., reddit)
+
+    const platformConfig = config.platforms[platformId];
+    const baseId = DYNAMIC_RULE_ID_BASE[platformId];
+
+    // Get all possible rule IDs for this platform
+    const ruleIds = patterns.map((_, index) => baseId + index + 1);
+    allRuleIdsToRemove.push(...ruleIds);
+
+    const shouldBlock = config.globalEnabled &&
+                        platformConfig.enabled &&
+                        platformConfig.redirectTarget === 'blocked';
+
     if (shouldBlock) {
-      // Add dynamic rules to redirect Twitter home/feed to blocked page
-      const rules: chrome.declarativeNetRequest.Rule[] = [
-        {
-          id: TWITTER_DYNAMIC_RULE_IDS[0],
-          priority: 1,
-          action: {
-            type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
-            redirect: {
-              extensionPath: '/ui/blocked.html'
-            }
-          },
-          condition: {
-            regexFilter: '^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/?(?:\\?.*)?$',
-            resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
+      // Create rules to redirect to blocked page
+      const rules = patterns.map((pattern, index) => ({
+        id: baseId + index + 1,
+        priority: 1,
+        action: {
+          type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+          redirect: {
+            extensionPath: '/ui/blocked.html'
           }
         },
-        {
-          id: TWITTER_DYNAMIC_RULE_IDS[1],
-          priority: 1,
-          action: {
-            type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
-            redirect: {
-              extensionPath: '/ui/blocked.html'
-            }
-          },
-          condition: {
-            regexFilter: '^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/home(?:\\?.*)?$',
-            resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
-          }
+        condition: {
+          regexFilter: pattern,
+          resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
         }
-      ];
+      } as chrome.declarativeNetRequest.Rule));
 
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: TWITTER_DYNAMIC_RULE_IDS,
-        addRules: rules
-      });
-      console.log('[IntentionalBrowsing] Twitter dynamic block rules added');
-    } else {
-      // Remove dynamic rules (let content script handle other redirect options)
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: TWITTER_DYNAMIC_RULE_IDS
-      });
-      console.log('[IntentionalBrowsing] Twitter dynamic block rules removed');
+      allRulesToAdd.push(...rules);
     }
+  }
+
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: allRuleIdsToRemove,
+      addRules: allRulesToAdd
+    });
+    console.log(`[IntentionalBrowsing] Dynamic rules synced: ${allRulesToAdd.length} active`);
   } catch (error) {
-    console.error('[IntentionalBrowsing] Failed to sync Twitter dynamic rules:', error);
+    console.error('[IntentionalBrowsing] Failed to sync dynamic rules:', error);
   }
 }
 
