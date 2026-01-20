@@ -56,7 +56,7 @@ export const YOUTUBE_DEFAULT: PlatformConfig = {
     endCards: true,
     shortsInFeed: true,
   },
-  redirectTarget: '/feed/subscriptions',
+  redirectTarget: 'feed-block',
   customSettings: {
     disableAutoplay: true,
     shortsRedirectToWatch: true,
@@ -430,6 +430,7 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
     { value: 'blocked', label: 'Block page' },
   ],
   youtube: [
+    { value: 'feed-block', label: 'Feed block' },
     { value: 'blocked', label: 'Block page' },
     { value: '/feed/subscriptions', label: 'Subscriptions' },
   ],
@@ -438,10 +439,12 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
     { value: '/direct/inbox/', label: 'Messages' },
   ],
   facebook: [
+    { value: 'feed-block', label: 'Feed block' },
     { value: 'blocked', label: 'Block page' },
     { value: '/messages/', label: 'Messages' },
   ],
   linkedin: [
+    { value: 'feed-block', label: 'Feed block' },
     { value: 'blocked', label: 'Block page' },
     { value: '/messaging/', label: 'Messages' },
   ],
