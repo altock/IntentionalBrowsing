@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blocked Page Screenshot</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      text-align: center;
+      padding: 40px;
+    }
+
+    .icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 32px;
+    }
+
+    .url {
+      font-family: monospace;
+      background: rgba(255,255,255,0.1);
+      padding: 8px 16px;
+      border-radius: 4px;
+      color: rgba(255,255,255,0.9);
+      font-size: 14px;
+      margin-bottom: 32px;
+      display: inline-block;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .btn-primary {
+      background: #fff;
+      color: #667eea;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    /* Browser frame mockup */
+    .browser-frame {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+      width: 900px;
+    }
+
+    .browser-header {
+      background: #f5f5f5;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .browser-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .browser-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .browser-dot.red { background: #ff5f56; }
+    .browser-dot.yellow { background: #ffbd2e; }
+    .browser-dot.green { background: #27ca40; }
+
+    .browser-url-bar {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .browser-content {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 500px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .blocked-content {
+      text-align: center;
+      padding: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="browser-frame">
+    <div class="browser-header">
+      <div class="browser-dots">
+        <div class="browser-dot red"></div>
+        <div class="browser-dot yellow"></div>
+        <div class="browser-dot green"></div>
+      </div>
+      <div class="browser-url-bar">
+        chrome-extension://intentional-browsing/ui/blocked.html?url=https://twitter.com/home
+      </div>
+    </div>
+    <div class="browser-content">
+      <div class="blocked-content">
+        <div class="icon">🛑</div>
+        <h1>This feed is blocked.</h1>
+        <p class="subtitle">You tried to access an algorithmic feed</p>
+        <div class="url">twitter.com/home</div>
+        <div class="buttons">
+          <button class="btn btn-primary">Go to Messages</button>
+          <button class="btn btn-secondary">Go Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

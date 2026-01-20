@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popup Screenshot</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      font-size: 14px;
+      color: #1a1a1a;
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .popup {
+      width: 280px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .global-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .toggle-slider {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      background: #10b981;
+      border-radius: 10px;
+    }
+
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transform: translateX(16px);
+    }
+
+    .platforms {
+      padding: 8px 0;
+    }
+
+    .platform {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+    }
+
+    .platform:hover {
+      background: #f5f5f5;
+    }
+
+    .platform-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .platform-icon {
+      font-size: 18px;
+    }
+
+    .platform-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .platform-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .platform-controls .toggle-slider {
+      width: 32px;
+      height: 18px;
+    }
+
+    .platform-controls .toggle-slider::after {
+      width: 14px;
+      height: 14px;
+    }
+
+    .platform-controls .toggle-slider.on {
+      background: #10b981;
+    }
+
+    .platform-controls .toggle-slider.on::after {
+      transform: translateX(14px);
+    }
+
+    .platform-controls .toggle-slider.off {
+      background: #ccc;
+    }
+
+    .platform-controls .toggle-slider.off::after {
+      transform: translateX(0);
+    }
+
+    .footer {
+      padding: 12px 16px;
+      border-top: 1px solid #e5e5e5;
+    }
+
+    .pause-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #f0f0f0;
+      color: #1a1a1a;
+    }
+
+    .stats {
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="popup">
+    <header class="header">
+      <h1 class="title">Intentional Browsing</h1>
+      <label class="global-toggle">
+        <span>Global</span>
+        <span class="toggle-slider"></span>
+      </label>
+    </header>
+
+    <main class="platforms">
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon">𝕏</span>
+          <span class="platform-name">X / Twitter</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider on"></div>
+        </div>
+      </div>
+
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon" style="color: #ff4500;">●</span>
+          <span class="platform-name">Reddit</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider on"></div>
+        </div>
+      </div>
+
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon" style="color: #ff0000;">▶</span>
+          <span class="platform-name">YouTube</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider on"></div>
+        </div>
+      </div>
+
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon" style="color: #e1306c;">📷</span>
+          <span class="platform-name">Instagram</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider on"></div>
+        </div>
+      </div>
+
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon" style="color: #1877f2;">f</span>
+          <span class="platform-name">Facebook</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider off"></div>
+        </div>
+      </div>
+
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon" style="color: #0a66c2;">in</span>
+          <span class="platform-name">LinkedIn</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider off"></div>
+        </div>
+      </div>
+
+      <div class="platform">
+        <div class="platform-info">
+          <span class="platform-icon">♪</span>
+          <span class="platform-name">TikTok</span>
+        </div>
+        <div class="platform-controls">
+          <div class="toggle-slider on"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="pause-buttons">
+        <button class="btn">Pause 5m</button>
+        <button class="btn">Pause 1h</button>
+      </div>
+      <div class="stats">42 feeds blocked</div>
+    </footer>
+  </div>
+</body>
+</html>
