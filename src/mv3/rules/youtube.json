@@ -14,37 +14,5 @@
       "regexFilter": "^https?://(?:www\\.|m\\.)?youtube\\.com/shorts(?:/.*)?(?:\\?.*)?$",
       "resourceTypes": ["main_frame"]
     }
-  },
-  {
-    "id": 2,
-    "priority": 1,
-    "action": {
-      "type": "redirect",
-      "redirect": {
-        "transform": {
-          "path": "/feed/subscriptions"
-        }
-      }
-    },
-    "condition": {
-      "regexFilter": "^https?://(?:www\\.|m\\.)?youtube\\.com/feed/trending(?:\\?.*)?$",
-      "resourceTypes": ["main_frame"]
-    }
-  },
-  {
-    "id": 3,
-    "priority": 1,
-    "action": {
-      "type": "redirect",
-      "redirect": {
-        "transform": {
-          "path": "/feed/subscriptions"
-        }
-      }
-    },
-    "condition": {
-      "regexFilter": "^https?://(?:www\\.|m\\.)?youtube\\.com/feed/explore(?:\\?.*)?$",
-      "resourceTypes": ["main_frame"]
-    }
   }
 ]

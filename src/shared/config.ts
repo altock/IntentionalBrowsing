@@ -450,6 +450,7 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
   ],
   tiktok: [
     { value: 'blocked', label: 'Block page' },
+    { value: '/following', label: 'Following' },
     { value: '/inbox', label: 'Messages' },
   ],
 };

@@ -47,8 +47,6 @@ const PLATFORM_BLOCK_PATTERNS: Record<PlatformId, string[]> = {
   youtube: [
     '^https?://(?:www\\.|m\\.)?youtube\\.com/?(?:\\?.*)?$',
     '^https?://(?:www\\.|m\\.)?youtube\\.com/shorts(?:/.*)?(?:\\?.*)?$',
-    '^https?://(?:www\\.|m\\.)?youtube\\.com/feed/trending(?:\\?.*)?$',
-    '^https?://(?:www\\.|m\\.)?youtube\\.com/feed/explore(?:\\?.*)?$',
   ],
   instagram: [
     '^https?://(?:www\\.)?instagram\\.com/?(?:\\?.*)?$',
@@ -65,7 +63,9 @@ const PLATFORM_BLOCK_PATTERNS: Record<PlatformId, string[]> = {
     '^https?://(?:www\\.)?linkedin\\.com/feed(?:/.*)?(?:\\?.*)?$',
   ],
   tiktok: [
-    '^https?://(?:www\\.)?tiktok\\.com(?:/.*)?(?:\\?.*)?$',
+    '^https?://(?:www\\.)?tiktok\\.com/?(?:\\?.*)?$',  // Home/For You
+    '^https?://(?:www\\.)?tiktok\\.com/foryou(?:\\?.*)?$',
+    '^https?://(?:www\\.)?tiktok\\.com/explore(?:/.*)?(?:\\?.*)?$',
   ],
   reddit: [], // Reddit uses static rules only
 };
