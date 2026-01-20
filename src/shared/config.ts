@@ -447,7 +447,6 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
     { value: '/direct/inbox/', label: 'Messages' },
   ],
   facebook: [
-    { value: 'feed-block', label: 'Feed block' },
     { value: 'blocked', label: 'Block page' },
     { value: '/messages/', label: 'Messages' },
   ],
@@ -458,7 +457,6 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
   ],
   tiktok: [
     { value: 'blocked', label: 'Block page' },
-    { value: '/following', label: 'Following' },
     { value: '/inbox', label: 'Messages' },
   ],
 };
