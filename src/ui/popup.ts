@@ -31,7 +31,7 @@ const PLATFORM_ORDER: PlatformId[] = [
   'youtube',
   'instagram',
   'facebook',
-  // 'linkedin', // Disabled - selectors need updating (see GitHub issue)
+  // 'linkedin', // Disabled - selectors need updating (#1)
   'tiktok',
 ];
 
