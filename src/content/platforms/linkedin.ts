@@ -23,18 +23,18 @@ class LinkedInContentScript extends PlatformContentScript {
     const config = response.data;
 
     // Check if LinkedIn blocking is enabled at all
-    if (!config?.platforms.linkedin.enabled) {
+    if (!config?.globalEnabled || !config?.platforms.linkedin.enabled) {
       console.log('[IntentionalBrowsing] LinkedIn blocking is disabled');
       return;
     }
 
-    if (config?.platforms.linkedin.softBlocks) {
-      const softBlocks = config.platforms.linkedin.softBlocks;
+    const linkedinConfig = config.platforms.linkedin;
 
-      if (softBlocks.feed && this.isFeedPage()) {
-        this.softBlockSelectors.push(LINKEDIN_SELECTORS.feed);
-      }
-      if (softBlocks.peopleYouMayKnow) {
+    // Only apply soft blocks if redirectTarget is 'feed-block'
+    if (linkedinConfig.redirectTarget === 'feed-block' && this.isFeedPage()) {
+      console.log('[IntentionalBrowsing] LinkedIn feed-block mode active');
+      this.softBlockSelectors.push(LINKEDIN_SELECTORS.feed);
+      if (linkedinConfig.softBlocks?.peopleYouMayKnow) {
         this.softBlockSelectors.push(LINKEDIN_SELECTORS.peopleYouMayKnow);
       }
     }

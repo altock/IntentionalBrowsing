@@ -391,13 +391,21 @@ export const FACEBOOK_SELECTORS: PlatformSelectors = {
  */
 export const LINKEDIN_SELECTORS: PlatformSelectors = {
   feed: {
-    primary: '.scaffold-finite-scroll__content',
-    fallbacks: ['[data-finite-scroll-hotkey-context="FEED"]'],
+    primary: 'main.scaffold-layout__main',
+    fallbacks: [
+      '.scaffold-finite-scroll__content',
+      '[data-finite-scroll-hotkey-context="FEED"]',
+      '.feed-shared-update-v2',
+      '[data-id^="urn:li:activity"]',
+    ],
     description: 'Feed posts',
   },
   peopleYouMayKnow: {
     primary: '.mn-pymk-section',
-    fallbacks: ['[data-test-id="people-you-may-know"]'],
+    fallbacks: [
+      '[data-test-id="people-you-may-know"]',
+      '.feed-follows-module',
+    ],
     description: 'People you may know suggestions',
   },
 };
