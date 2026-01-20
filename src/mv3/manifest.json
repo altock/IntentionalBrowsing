@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Intentional Browsing",
   "version": "0.1.0",
-  "description": "Block algorithmic feeds while preserving utility features like DMs, search, and subscriptions",
+  "description": "Block the feed. Keep the signal. Visit on purpose.",
   "permissions": [
     "storage",
     "declarativeNetRequest"

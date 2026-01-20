@@ -1,5 +1,7 @@
 # Intentional Browsing
 
+**Block the feed. Keep the signal. Visit on purpose.**
+
 A browser extension that blocks algorithmic feeds while preserving the features you actually use—DMs, search, subscriptions, and direct links.
 
 ## What it does
@@ -42,11 +44,11 @@ npm run test:e2e     # E2E tests (Playwright)
 
 ## How it works
 
-**Hard blocks**: Navigation-level blocking via `webNavigation` API. Redirects to a blocked page or safe destination (e.g., YouTube → Subscriptions).
+**Hard blocks**: Navigation-level blocking via `declarativeNetRequest` (Chrome) or `webNavigation` (Firefox). Redirects to a blocked page or safe destination (e.g., YouTube → Subscriptions).
 
 **Soft blocks**: DOM hiding via content scripts with MutationObserver for dynamic content.
 
-The extension detects SPA navigation by patching `history.pushState`/`replaceState` to catch in-app route changes.
+**SPA detection**: Content scripts patch `history.pushState`/`replaceState` to catch in-app route changes.
 
 ## Privacy
 

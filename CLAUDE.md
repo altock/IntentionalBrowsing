@@ -23,7 +23,7 @@ This is a browser extension that blocks algorithmic feeds while preserving utili
 
 ### Blocking Modes
 
-- **Hard block**: Navigation-level blocking via `webNavigation` API, redirects to blocked page or safe destination
+- **Hard block**: Navigation-level blocking via `declarativeNetRequest` (MV3/Chrome) or `webNavigation` (MV2/Firefox), redirects to blocked page or safe destination
 - **Soft block**: DOM hiding via content scripts, uses MutationObserver for dynamic content
 
 ### Key Directories
@@ -46,7 +46,7 @@ src/
 
 ### Data Flow
 
-1. **Background script** listens for navigation via `webNavigation.onBeforeNavigate` and `onHistoryStateUpdated`
+1. **MV3 (Chrome)**: `declarativeNetRequest` static rules handle redirects; **MV2 (Firefox)**: `webNavigation` API handles navigation
 2. **Rules engine** (`src/shared/rules.ts`) determines if URL should be blocked using pattern matching
 3. Hard blocks redirect to blocked page or platform-specific safe destination
 4. **Content scripts** handle soft blocks by hiding DOM elements using selectors from `config.ts`
