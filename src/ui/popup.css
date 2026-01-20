@@ -103,6 +103,18 @@ body {
   gap: 10px;
 }
 
+.platform-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.platform-icon svg {
+  display: block;
+}
+
 .platform-name {
   font-size: 14px;
   font-weight: 500;
@@ -138,28 +150,6 @@ body {
 
 .platform-toggle input:checked + .toggle-slider::after {
   transform: translateX(14px);
-}
-
-.btn-settings {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  color: #666;
-  transition: background 0.1s, color 0.1s;
-}
-
-.btn-settings:hover {
-  background: #e5e5e5;
-  color: #1a1a1a;
-}
-
-.btn-settings svg {
-  display: block;
 }
 
 /* Platform Settings Panel */

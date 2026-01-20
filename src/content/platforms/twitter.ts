@@ -2,7 +2,9 @@
  * Twitter/X Content Script
  *
  * Handles:
+ * - Blocking home/feed pages based on user settings
  * - Auto-clicking "Following" tab when that option is selected
+ * - Redirecting to messages when that option is selected
  * - SPA navigation detection
  */
 
@@ -11,6 +13,7 @@ import type { StorageSchema } from '../../shared/types.js';
 
 class TwitterContentScript extends PlatformContentScript {
   private hasClickedFollowingTab = false;
+  private hasHandledRedirect = false;
 
   constructor() {
     super('twitter');
@@ -19,22 +22,26 @@ class TwitterContentScript extends PlatformContentScript {
   async init(): Promise<void> {
     await super.init();
 
-    // Check if we should auto-click Following tab
-    await this.maybeClickFollowingTab();
+    // Check if we need to block/redirect
+    await this.handleRedirect();
 
     // Also check on SPA navigation
     this.router.onLocationChange(async () => {
       this.hasClickedFollowingTab = false;
-      await this.maybeClickFollowingTab();
+      this.hasHandledRedirect = false;
+      await this.handleRedirect();
     });
   }
 
-  private async maybeClickFollowingTab(): Promise<void> {
+  private async handleRedirect(): Promise<void> {
     // Only on home page
     const path = window.location.pathname;
     if (path !== '/' && path !== '/home') {
       return;
     }
+
+    // Prevent double-handling
+    if (this.hasHandledRedirect) return;
 
     // Check config
     const response = await sendMessage<StorageSchema>({ type: 'GET_CONFIG' });
@@ -44,11 +51,23 @@ class TwitterContentScript extends PlatformContentScript {
     const twitterConfig = config.platforms.twitter;
 
     if (!config.globalEnabled || !twitterConfig.enabled) return;
-    if (twitterConfig.redirectTarget !== 'following-tab') return;
-    if (this.hasClickedFollowingTab) return;
 
-    // Wait for the tab to appear and click it
-    this.waitForAndClickFollowingTab();
+    this.hasHandledRedirect = true;
+
+    switch (twitterConfig.redirectTarget) {
+      case 'blocked':
+        // Redirect to blocked page
+        window.location.href = chrome.runtime.getURL('/ui/blocked.html');
+        break;
+      case 'following-tab':
+        // Auto-click Following tab
+        this.waitForAndClickFollowingTab();
+        break;
+      case '/i/chat':
+        // Redirect to messages
+        window.location.href = 'https://x.com/messages';
+        break;
+    }
   }
 
   private waitForAndClickFollowingTab(): void {

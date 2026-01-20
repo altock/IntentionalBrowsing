@@ -22,6 +22,12 @@ const RULE_SET_IDS: Record<PlatformId, string> = {
 };
 
 /**
+ * Dynamic rule IDs for Twitter (since redirect target is configurable)
+ * Using IDs 10001+ to avoid conflicts with static rules
+ */
+const TWITTER_DYNAMIC_RULE_IDS = [10001, 10002];
+
+/**
  * Initialize the extension
  */
 async function init(): Promise<void> {
@@ -60,6 +66,70 @@ async function syncRuleStates(config: StorageSchema): Promise<void> {
     console.log('[IntentionalBrowsing] Rule states synced');
   } catch (error) {
     console.error('[IntentionalBrowsing] Failed to sync rule states:', error);
+  }
+
+  // Sync Twitter dynamic rules (since redirect target is configurable)
+  await syncTwitterDynamicRules(config);
+}
+
+/**
+ * Sync Twitter's dynamic rules based on redirect target setting
+ * Uses dynamic rules because the redirect destination is user-configurable
+ */
+async function syncTwitterDynamicRules(config: StorageSchema): Promise<void> {
+  const twitterConfig = config.platforms.twitter;
+  const shouldBlock = config.globalEnabled &&
+                      twitterConfig.enabled &&
+                      twitterConfig.redirectTarget === 'blocked';
+
+  try {
+    if (shouldBlock) {
+      // Add dynamic rules to redirect Twitter home/feed to blocked page
+      const rules: chrome.declarativeNetRequest.Rule[] = [
+        {
+          id: TWITTER_DYNAMIC_RULE_IDS[0],
+          priority: 1,
+          action: {
+            type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+            redirect: {
+              extensionPath: '/ui/blocked.html'
+            }
+          },
+          condition: {
+            regexFilter: '^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/?(?:\\?.*)?$',
+            resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
+          }
+        },
+        {
+          id: TWITTER_DYNAMIC_RULE_IDS[1],
+          priority: 1,
+          action: {
+            type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+            redirect: {
+              extensionPath: '/ui/blocked.html'
+            }
+          },
+          condition: {
+            regexFilter: '^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/home(?:\\?.*)?$',
+            resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
+          }
+        }
+      ];
+
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: TWITTER_DYNAMIC_RULE_IDS,
+        addRules: rules
+      });
+      console.log('[IntentionalBrowsing] Twitter dynamic block rules added');
+    } else {
+      // Remove dynamic rules (let content script handle other redirect options)
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: TWITTER_DYNAMIC_RULE_IDS
+      });
+      console.log('[IntentionalBrowsing] Twitter dynamic block rules removed');
+    }
+  } catch (error) {
+    console.error('[IntentionalBrowsing] Failed to sync Twitter dynamic rules:', error);
   }
 }
 
