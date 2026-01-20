@@ -52,7 +52,6 @@ function render(config: StorageSchema): void {
   const popup = document.querySelector('.popup')!;
   const globalToggle = document.getElementById('global-enabled') as HTMLInputElement;
   const platformsContainer = document.getElementById('platforms')!;
-  const statsContainer = document.getElementById('stats')!;
 
   globalToggle.checked = config.globalEnabled;
   popup.classList.toggle('disabled', !config.globalEnabled);
@@ -73,8 +72,6 @@ function render(config: StorageSchema): void {
       </div>
     `;
   }).join('');
-
-  statsContainer.textContent = `Blocked ${config.stats.blocksTotal} distractions`;
 }
 
 async function handleGlobalToggle(enabled: boolean): Promise<void> {
