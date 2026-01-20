@@ -411,3 +411,41 @@ export const PLATFORM_SELECTORS: Partial<Record<PlatformId, PlatformSelectors>> 
   facebook: FACEBOOK_SELECTORS,
   linkedin: LINKEDIN_SELECTORS,
 };
+
+/**
+ * Redirect options available for each platform
+ */
+export interface RedirectOption {
+  value: string;
+  label: string;
+}
+
+export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
+  twitter: [
+    { value: 'blocked', label: 'Block' },
+    { value: '/i/chat', label: 'Messages' },
+  ],
+  reddit: [
+    { value: 'blocked', label: 'Block' },
+  ],
+  youtube: [
+    { value: 'blocked', label: 'Block' },
+    { value: '/feed/subscriptions', label: 'Subscriptions' },
+    { value: '/feed/library', label: 'Library' },
+  ],
+  instagram: [
+    { value: 'blocked', label: 'Block' },
+    { value: '/direct/inbox/', label: 'Messages' },
+  ],
+  facebook: [
+    { value: 'blocked', label: 'Block' },
+    { value: '/messages/', label: 'Messages' },
+  ],
+  linkedin: [
+    { value: 'blocked', label: 'Block' },
+    { value: '/messaging/', label: 'Messages' },
+  ],
+  tiktok: [
+    { value: 'blocked', label: 'Block' },
+  ],
+};
