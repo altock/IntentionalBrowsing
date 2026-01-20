@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="440" height="280" fill="url(#bg)"/>
+  <circle cx="220" cy="85" r="32" fill="rgba(255,255,255,0.2)"/>
+  <circle cx="220" cy="85" r="13" fill="none" stroke="#fff" stroke-width="3"/>
+  <circle cx="220" cy="85" r="3.5" fill="#fff"/>
+  <line x1="220" y1="64" x2="220" y2="72" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="220" y1="98" x2="220" y2="106" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="199" y1="85" x2="207" y2="85" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="233" y1="85" x2="241" y2="85" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <text x="220" y="155" text-anchor="middle" fill="#fff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="700">Intentional Browsing</text>
+  <text x="220" y="185" text-anchor="middle" fill="#fff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" opacity="0.95">Block the feed. Keep the signal.</text>
+  <text x="220" y="205" text-anchor="middle" fill="#fff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" opacity="0.95">Visit on purpose.</text>
+</svg>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 1280px;
+      height: 800px;
+      background: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .popup {
+      background: white;
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      width: 320px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .title { font-weight: 600; font-size: 16px; }
+    .global { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+    .platform {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .platform:last-child { border-bottom: none; }
+    .platform-icon { width: 24px; height: 24px; margin-right: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .platform-name { flex: 1; font-size: 14px; }
+    .toggle {
+      width: 44px; height: 24px; background: #10b981; border-radius: 12px;
+      position: relative; cursor: pointer;
+    }
+    .toggle.off { background: #d1d5db; }
+    .toggle::after {
+      content: ''; position: absolute; width: 20px; height: 20px;
+      background: white; border-radius: 50%; top: 2px; right: 2px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle.off::after { right: auto; left: 2px; }
+    .redirect { padding: 6px 0 10px 36px; }
+    .redirect-label { font-size: 12px; color: #888; }
+    .redirect-select {
+      margin-top: 4px; padding: 6px 10px; border: 1px solid #ddd;
+      border-radius: 6px; font-size: 13px; background: white;
+      min-width: 140px;
+    }
+  </style>
+</head>
+<body>
+  <div class="popup">
+    <div class="header">
+      <span class="title">Intentional Browsing</span>
+      <div class="global">Global <div class="toggle"></div></div>
+    </div>
+    <div class="platform">
+      <div class="platform-icon">𝕏</div>
+      <div class="platform-name">X / Twitter</div>
+      <div class="toggle"></div>
+    </div>
+    <div class="redirect">
+      <div class="redirect-label">Redirect to:</div>
+      <select class="redirect-select"><option>Block page</option></select>
+    </div>
+    <div class="platform">
+      <div class="platform-icon" style="color: #ff4500;">●</div>
+      <div class="platform-name">Reddit</div>
+      <div class="toggle"></div>
+    </div>
+    <div class="platform">
+      <div class="platform-icon" style="color: #ff0000;">▶</div>
+      <div class="platform-name">YouTube</div>
+      <div class="toggle"></div>
+    </div>
+    <div class="redirect">
+      <div class="redirect-label">Redirect to:</div>
+      <select class="redirect-select"><option>Subscriptions</option></select>
+    </div>
+    <div class="platform">
+      <div class="platform-icon">📷</div>
+      <div class="platform-name">Instagram</div>
+      <div class="toggle"></div>
+    </div>
+    <div class="redirect">
+      <div class="redirect-label">Redirect to:</div>
+      <select class="redirect-select"><option>Messages</option></select>
+    </div>
+    <div class="platform">
+      <div class="platform-icon" style="color: #1877f2;">f</div>
+      <div class="platform-name">Facebook</div>
+      <div class="toggle"></div>
+    </div>
+    <div class="platform">
+      <div class="platform-icon">♪</div>
+      <div class="platform-name">TikTok</div>
+      <div class="toggle"></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 1400px;
+      height: 560px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: white;
+      padding: 60px;
+    }
+    .content {
+      display: flex;
+      align-items: center;
+      gap: 80px;
+    }
+    .icon {
+      width: 180px;
+      height: 180px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .icon svg {
+      width: 140px;
+      height: 140px;
+    }
+    .text {
+      text-align: left;
+    }
+    h1 {
+      font-size: 56px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      letter-spacing: -1px;
+    }
+    p {
+      font-size: 28px;
+      opacity: 0.95;
+      line-height: 1.4;
+    }
+    .platforms {
+      margin-top: 24px;
+      font-size: 18px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <div class="icon">
+      <svg viewBox="0 0 128 128">
+        <circle cx="64" cy="64" r="26" fill="none" stroke="#fff" stroke-width="6"/>
+        <circle cx="64" cy="64" r="7" fill="#fff"/>
+        <line x1="64" y1="22" x2="64" y2="38" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        <line x1="64" y1="90" x2="64" y2="106" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        <line x1="22" y1="64" x2="38" y2="64" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        <line x1="90" y1="64" x2="106" y2="64" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="text">
+      <h1>Intentional Browsing</h1>
+      <p>Block the feed. Keep the signal. Visit on purpose.</p>
+      <div class="platforms">Twitter • Reddit • YouTube • Instagram • Facebook • TikTok</div>
+    </div>
+  </div>
+</body>
+</html>
