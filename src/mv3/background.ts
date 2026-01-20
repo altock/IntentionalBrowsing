@@ -129,34 +129,43 @@ async function syncDynamicBlockRules(config: StorageSchema): Promise<void> {
 
     const platformConfig = config.platforms[platformId];
     const baseId = DYNAMIC_RULE_ID_BASE[platformId];
+    const redirectTarget = platformConfig.redirectTarget;
 
     // Get all possible rule IDs for this platform
     const ruleIds = patterns.map((_, index) => baseId + index + 1);
     allRuleIdsToRemove.push(...ruleIds);
 
-    const shouldBlock = config.globalEnabled &&
-                        platformConfig.enabled &&
-                        platformConfig.redirectTarget === 'blocked';
+    const isEnabled = config.globalEnabled && platformConfig.enabled;
+    const isBlockPage = redirectTarget === 'blocked';
+    const isPathRedirect = redirectTarget.startsWith('/');
 
-    if (shouldBlock) {
-      // Create rules to redirect to blocked page
-      const rules = patterns.map((pattern, index) => ({
-        id: baseId + index + 1,
-        priority: 1,
-        action: {
-          type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
-          redirect: {
-            extensionPath: '/ui/blocked.html'
+    if (isEnabled && (isBlockPage || isPathRedirect)) {
+      // Create rules to redirect
+      const rules = patterns.map((pattern, index) => {
+        const action: chrome.declarativeNetRequest.RuleAction = isBlockPage
+          ? {
+              type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+              redirect: { extensionPath: '/ui/blocked.html' }
+            }
+          : {
+              type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+              redirect: { transform: { path: redirectTarget } }
+            };
+
+        return {
+          id: baseId + index + 1,
+          priority: 1,
+          action,
+          condition: {
+            regexFilter: pattern,
+            resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
           }
-        },
-        condition: {
-          regexFilter: pattern,
-          resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME]
-        }
-      } as chrome.declarativeNetRequest.Rule));
+        } as chrome.declarativeNetRequest.Rule;
+      });
 
       allRulesToAdd.push(...rules);
     }
+    // 'feed-block' and other non-path options don't need dynamic rules (handled by content scripts)
   }
 
   try {
