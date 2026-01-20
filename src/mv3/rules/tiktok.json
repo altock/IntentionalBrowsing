@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/ui/blocked.html"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.)?tiktok\\.com(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

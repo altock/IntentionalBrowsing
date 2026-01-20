@@ -1,0 +1,235 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #fff;
+}
+
+.popup {
+  width: 280px;
+  min-height: 200px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Toggle Switch */
+.global-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+}
+
+.global-toggle input {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: #ccc;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.global-toggle input:checked + .toggle-slider {
+  background: #10b981;
+}
+
+.global-toggle input:checked + .toggle-slider::after {
+  transform: translateX(16px);
+}
+
+/* Platforms */
+.platforms {
+  padding: 8px 0;
+}
+
+.platform {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  transition: background 0.1s;
+}
+
+.platform:hover {
+  background: #f5f5f5;
+}
+
+.platform-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.platform-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-toggle {
+  cursor: pointer;
+}
+
+.platform-toggle input {
+  display: none;
+}
+
+.platform-toggle .toggle-slider {
+  width: 32px;
+  height: 18px;
+}
+
+.platform-toggle .toggle-slider::after {
+  width: 14px;
+  height: 14px;
+}
+
+.platform-toggle input:checked + .toggle-slider::after {
+  transform: translateX(14px);
+}
+
+.btn-settings {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #666;
+  transition: background 0.1s, color 0.1s;
+}
+
+.btn-settings:hover {
+  background: #e5e5e5;
+  color: #1a1a1a;
+}
+
+/* Footer */
+.footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.pause-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.btn-pause {
+  background: #f0f0f0;
+  color: #1a1a1a;
+}
+
+.btn-pause:hover {
+  background: #e0e0e0;
+}
+
+.btn-pause.active {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.stats {
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+}
+
+/* Paused state */
+.popup.paused .header {
+  background: #fef3c7;
+}
+
+.popup.paused .title::after {
+  content: ' (Paused)';
+  font-weight: 400;
+  color: #92400e;
+}
+
+/* Disabled state */
+.popup.disabled {
+  opacity: 0.6;
+}
+
+.popup.disabled .platforms {
+  pointer-events: none;
+}
+
+/* Pause timer */
+.pause-timer {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fef3c7;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.pause-timer button {
+  margin-left: 8px;
+  background: #92400e;
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pause-timer button:hover {
+  background: #78350f;
+}

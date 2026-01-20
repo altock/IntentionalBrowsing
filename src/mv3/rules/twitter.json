@@ -1,0 +1,51 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/messages"
+        }
+      }
+    },
+    "condition": {
+      "urlFilter": "||twitter.com/",
+      "resourceTypes": ["main_frame"],
+      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/?(?:\\?.*)?$"
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/messages"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/home(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/messages"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/explore(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

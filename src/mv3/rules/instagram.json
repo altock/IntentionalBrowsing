@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/direct/inbox/"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.)?instagram\\.com/explore(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/direct/inbox/"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.)?instagram\\.com/reels(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

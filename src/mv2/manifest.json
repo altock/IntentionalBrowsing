@@ -1,0 +1,119 @@
+{
+  "manifest_version": 2,
+  "name": "Intentional Browsing",
+  "version": "0.1.0",
+  "description": "Block algorithmic feeds while preserving utility features like DMs, search, and subscriptions",
+  "permissions": [
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "*://twitter.com/*",
+    "*://www.twitter.com/*",
+    "*://x.com/*",
+    "*://www.x.com/*",
+    "*://mobile.twitter.com/*",
+    "*://mobile.x.com/*",
+    "*://reddit.com/*",
+    "*://www.reddit.com/*",
+    "*://old.reddit.com/*",
+    "*://new.reddit.com/*",
+    "*://youtube.com/*",
+    "*://www.youtube.com/*",
+    "*://m.youtube.com/*",
+    "*://instagram.com/*",
+    "*://www.instagram.com/*",
+    "*://facebook.com/*",
+    "*://www.facebook.com/*",
+    "*://m.facebook.com/*",
+    "*://linkedin.com/*",
+    "*://www.linkedin.com/*",
+    "*://tiktok.com/*",
+    "*://www.tiktok.com/*"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_popup": "ui/popup.html",
+    "default_title": "Intentional Browsing"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://twitter.com/*",
+        "*://www.twitter.com/*",
+        "*://x.com/*",
+        "*://www.x.com/*",
+        "*://mobile.twitter.com/*",
+        "*://mobile.x.com/*"
+      ],
+      "js": ["content/twitter.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://reddit.com/*",
+        "*://www.reddit.com/*",
+        "*://old.reddit.com/*",
+        "*://new.reddit.com/*"
+      ],
+      "js": ["content/reddit.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://youtube.com/*",
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*"
+      ],
+      "js": ["content/youtube.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://instagram.com/*",
+        "*://www.instagram.com/*"
+      ],
+      "js": ["content/instagram.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://facebook.com/*",
+        "*://www.facebook.com/*",
+        "*://m.facebook.com/*"
+      ],
+      "js": ["content/facebook.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://linkedin.com/*",
+        "*://www.linkedin.com/*"
+      ],
+      "js": ["content/linkedin.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://tiktok.com/*",
+        "*://www.tiktok.com/*"
+      ],
+      "js": ["content/tiktok.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.svg",
+    "32": "icons/icon32.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "intentional-browsing@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

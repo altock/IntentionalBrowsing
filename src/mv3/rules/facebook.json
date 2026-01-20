@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/messages/"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|m\\.)?facebook\\.com/watch(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/messages/"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|m\\.)?facebook\\.com/reels(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

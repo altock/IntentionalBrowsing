@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intentional Browsing</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <header class="header">
+      <h1 class="title">Intentional Browsing</h1>
+      <label class="global-toggle">
+        <span>Global</span>
+        <input type="checkbox" id="global-enabled" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </header>
+
+    <main class="platforms" id="platforms">
+      <!-- Platforms will be rendered by JavaScript -->
+    </main>
+
+    <footer class="footer">
+      <div class="pause-buttons">
+        <button class="btn btn-pause" data-duration="300000">Pause 5m</button>
+        <button class="btn btn-pause" data-duration="3600000">Pause 1h</button>
+      </div>
+      <div class="stats" id="stats">
+        <!-- Stats will be rendered by JavaScript -->
+      </div>
+    </footer>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

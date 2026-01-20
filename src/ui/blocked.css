@@ -1,0 +1,188 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: #fafafa;
+  color: #1a1a1a;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  text-align: center;
+  padding: 40px 20px;
+  max-width: 400px;
+}
+
+.content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 40px 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  border: none;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #10b981;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #059669;
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #1a1a1a;
+}
+
+.btn-secondary:hover {
+  background: #e5e5e5;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+}
+
+.btn-outline:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.pause-section {
+  padding-top: 24px;
+  border-top: 1px solid #eee;
+}
+
+.pause-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 12px;
+}
+
+.pause-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.pause-buttons .btn {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.pause-active {
+  padding-top: 24px;
+  border-top: 1px solid #eee;
+}
+
+.pause-active p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+#pause-until {
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1a1a1a;
+    color: #f0f0f0;
+  }
+
+  .content {
+    background: #262626;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  h1 {
+    color: #f0f0f0;
+  }
+
+  .subtitle {
+    color: #999;
+  }
+
+  .btn-secondary {
+    background: #333;
+    color: #f0f0f0;
+  }
+
+  .btn-secondary:hover {
+    background: #404040;
+  }
+
+  .btn-outline {
+    border-color: #444;
+    color: #999;
+  }
+
+  .btn-outline:hover {
+    background: #333;
+    border-color: #555;
+  }
+
+  .pause-section {
+    border-top-color: #333;
+  }
+
+  .pause-active {
+    border-top-color: #333;
+  }
+
+  #pause-until {
+    color: #f0f0f0;
+  }
+}

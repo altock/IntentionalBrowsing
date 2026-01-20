@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/ui/blocked.html"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|old\\.|new\\.)?reddit\\.com/?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/ui/blocked.html"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|old\\.|new\\.)?reddit\\.com/home(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/ui/blocked.html"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|old\\.|new\\.)?reddit\\.com/popular(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/ui/blocked.html"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|old\\.|new\\.)?reddit\\.com/(?:r/)?all(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/ui/blocked.html"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.|old\\.|new\\.)?reddit\\.com/r/popular(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]
