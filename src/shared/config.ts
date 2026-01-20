@@ -423,6 +423,7 @@ export interface RedirectOption {
 export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
   twitter: [
     { value: 'blocked', label: 'Block' },
+    { value: 'following-tab', label: 'Following tab' },
     { value: '/i/chat', label: 'Messages' },
   ],
   reddit: [
@@ -431,7 +432,6 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
   youtube: [
     { value: 'blocked', label: 'Block' },
     { value: '/feed/subscriptions', label: 'Subscriptions' },
-    { value: '/feed/library', label: 'Library' },
   ],
   instagram: [
     { value: 'blocked', label: 'Block' },
@@ -447,5 +447,6 @@ export const PLATFORM_REDIRECT_OPTIONS: Record<PlatformId, RedirectOption[]> = {
   ],
   tiktok: [
     { value: 'blocked', label: 'Block' },
+    { value: '/inbox', label: 'Messages' },
   ],
 };
