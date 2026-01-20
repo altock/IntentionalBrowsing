@@ -11,12 +11,28 @@
       }
     },
     "condition": {
-      "regexFilter": "^https?://(?:www\\.)?instagram\\.com/explore(?:/.*)?(?:\\?.*)?$",
+      "regexFilter": "^https?://(?:www\\.)?instagram\\.com/?(?:\\?.*)?$",
       "resourceTypes": ["main_frame"]
     }
   },
   {
     "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/direct/inbox/"
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.)?instagram\\.com/explore(?:/.*)?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
     "priority": 1,
     "action": {
       "type": "redirect",

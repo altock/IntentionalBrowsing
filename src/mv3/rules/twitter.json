@@ -6,14 +6,13 @@
       "type": "redirect",
       "redirect": {
         "transform": {
-          "path": "/messages"
+          "path": "/following"
         }
       }
     },
     "condition": {
-      "urlFilter": "||twitter.com/",
-      "resourceTypes": ["main_frame"],
-      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/?(?:\\?.*)?$"
+      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(twitter|x)\\.com/?(?:\\?.*)?$",
+      "resourceTypes": ["main_frame"]
     }
   },
   {
@@ -23,28 +22,12 @@
       "type": "redirect",
       "redirect": {
         "transform": {
-          "path": "/messages"
+          "path": "/following"
         }
       }
     },
     "condition": {
-      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/home(?:/.*)?(?:\\?.*)?$",
-      "resourceTypes": ["main_frame"]
-    }
-  },
-  {
-    "id": 3,
-    "priority": 1,
-    "action": {
-      "type": "redirect",
-      "redirect": {
-        "transform": {
-          "path": "/messages"
-        }
-      }
-    },
-    "condition": {
-      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(?:twitter|x)\\.com/explore(?:/.*)?(?:\\?.*)?$",
+      "regexFilter": "^https?://(?:www\\.|mobile\\.)?(twitter|x)\\.com/home(?:\\?.*)?$",
       "resourceTypes": ["main_frame"]
     }
   }

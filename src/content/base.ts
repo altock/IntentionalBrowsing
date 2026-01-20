@@ -33,40 +33,6 @@ export async function checkCurrentUrl(): Promise<BlockDecision> {
 }
 
 /**
- * Notify background of URL change (for SPA navigation)
- */
-export async function notifyUrlChange(url: string): Promise<void> {
-  await sendMessage({
-    type: 'URL_CHANGED',
-    payload: { url, tabId: undefined }, // Background will handle redirect if needed
-  });
-}
-
-/**
- * Hide an element using a selector config
- */
-export function hideElement(selectorConfig: SelectorConfig): boolean {
-  // Try primary selector first
-  const primary = document.querySelector(selectorConfig.primary);
-  if (primary) {
-    (primary as HTMLElement).style.display = 'none';
-    return true;
-  }
-
-  // Try fallback selectors
-  for (const fallback of selectorConfig.fallbacks) {
-    const element = document.querySelector(fallback);
-    if (element) {
-      (element as HTMLElement).style.display = 'none';
-      console.log(`[IntentionalBrowsing] Used fallback selector for ${selectorConfig.description}`);
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
  * Hide all elements matching a selector config
  */
 export function hideAllElements(selectorConfig: SelectorConfig): number {
@@ -101,15 +67,26 @@ export function hideAllElements(selectorConfig: SelectorConfig): number {
 }
 
 /**
- * Set up a MutationObserver to continuously hide elements
+ * Set up a MutationObserver to continuously hide elements with debouncing
  */
 export function observeAndHide(
   selectorConfigs: SelectorConfig[],
   container: Element = document.body
 ): MutationObserver {
-  const observer = new MutationObserver(() => {
+  let scheduled = false;
+
+  const hideElements = () => {
+    scheduled = false;
     for (const config of selectorConfigs) {
       hideAllElements(config);
+    }
+  };
+
+  const observer = new MutationObserver(() => {
+    // Debounce using requestAnimationFrame
+    if (!scheduled) {
+      scheduled = true;
+      requestAnimationFrame(hideElements);
     }
   });
 
@@ -159,12 +136,9 @@ export abstract class PlatformContentScript {
       // Hard blocks are handled by background script
     }
 
-    // Listen for SPA navigation
-    this.router.onLocationChange(async (url) => {
-      console.log(`[IntentionalBrowsing] SPA navigation detected: ${url}`);
-      await notifyUrlChange(url);
-
-      // Re-check and apply soft blocks
+    // Listen for SPA navigation to re-apply soft blocks
+    // (hard blocks handled by background via webNavigation API)
+    this.router.onLocationChange(async () => {
       const newDecision = await checkCurrentUrl();
       if (newDecision.shouldBlock && newDecision.mode === 'soft') {
         this.applySoftBlocks();

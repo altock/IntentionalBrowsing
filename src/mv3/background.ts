@@ -1,14 +1,11 @@
 /**
  * Background Service Worker (MV3)
  *
- * Handles:
- * - Dynamic rule management for declarativeNetRequest
- * - Message passing between content scripts and popup
- * - Storage management
+ * Manages declarativeNetRequest rules and handles messages from popup/content scripts.
  */
 
 import { Storage } from '../shared/storage.js';
-import { getBlockDecision, buildRedirectUrl, getPlatformFromUrl } from '../shared/rules.js';
+import { getBlockDecision } from '../shared/rules.js';
 import type { ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
 
 /**
@@ -110,23 +107,6 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
       return { success: true };
     }
 
-    case 'PAUSE': {
-      const { duration, platformId } = message.payload as { duration: number; platformId?: PlatformId };
-      const until = Date.now() + duration;
-      await Storage.setPause(until, platformId);
-      const config = await Storage.load();
-      await syncRuleStates(config);
-      return { success: true, data: { until } };
-    }
-
-    case 'RESUME': {
-      const { platformId } = (message.payload as { platformId?: PlatformId }) || {};
-      await Storage.clearPause(platformId);
-      const config = await Storage.load();
-      await syncRuleStates(config);
-      return { success: true };
-    }
-
     case 'GET_STATS': {
       const config = await Storage.load();
       return { success: true, data: config.stats };
@@ -137,48 +117,10 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
       return { success: true };
     }
 
-    case 'URL_CHANGED': {
-      const { url, tabId } = message.payload as { url: string; tabId?: number };
-      const config = await Storage.load();
-      const decision = getBlockDecision(url, config);
-
-      if (decision.shouldBlock && decision.mode === 'hard' && decision.redirectUrl) {
-        const redirectUrl = buildRedirectUrl(url, decision.redirectUrl, chrome.runtime.id);
-
-        // Increment block count
-        await Storage.incrementBlockCount();
-
-        // Redirect the tab
-        if (tabId) {
-          await chrome.tabs.update(tabId, { url: redirectUrl });
-        }
-
-        return { success: true, data: { blocked: true, redirectUrl } };
-      }
-
-      return { success: true, data: { blocked: false } };
-    }
-
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
   }
 }
-
-/**
- * Handle navigation events for SPA redirects
- */
-chrome.webNavigation?.onHistoryStateUpdated.addListener(async (details) => {
-  if (details.frameId !== 0) return; // Only main frame
-
-  const config = await Storage.load();
-  const decision = getBlockDecision(details.url, config);
-
-  if (decision.shouldBlock && decision.mode === 'hard' && decision.redirectUrl) {
-    const redirectUrl = buildRedirectUrl(details.url, decision.redirectUrl, chrome.runtime.id);
-    await Storage.incrementBlockCount();
-    await chrome.tabs.update(details.tabId, { url: redirectUrl });
-  }
-});
 
 /**
  * Listen for storage changes to sync rule states
@@ -188,14 +130,6 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
     const newConfig = changes.config.newValue as StorageSchema;
     await syncRuleStates(newConfig);
   }
-});
-
-/**
- * Track blocked requests for stats
- */
-chrome.declarativeNetRequest.onRuleMatchedDebug?.addListener(async (info) => {
-  console.log('[IntentionalBrowsing] Rule matched:', info);
-  await Storage.incrementBlockCount();
 });
 
 // Initialize on install/update

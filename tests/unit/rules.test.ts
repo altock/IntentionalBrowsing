@@ -137,7 +137,7 @@ describe('checkUrl', () => {
       const result = checkUrl('https://twitter.com/');
       expect(result.shouldBlock).toBe(true);
       expect(result.mode).toBe('hard');
-      expect(result.redirectUrl).toBe('/messages');
+      expect(result.redirectUrl).toBe('blocked');
     });
 
     it('should block /home', () => {
@@ -146,10 +146,10 @@ describe('checkUrl', () => {
       expect(result.mode).toBe('hard');
     });
 
-    it('should block explore', () => {
+    it('should allow explore', () => {
       const result = checkUrl('https://x.com/explore');
-      expect(result.shouldBlock).toBe(true);
-      expect(result.mode).toBe('hard');
+      expect(result.shouldBlock).toBe(false);
+      expect(result.mode).toBe('allow');
     });
 
     it('should allow messages', () => {
@@ -268,10 +268,11 @@ describe('checkUrl', () => {
   });
 
   describe('Instagram', () => {
-    it('should soft block home feed', () => {
+    it('should hard block home feed and redirect to messages', () => {
       const result = checkUrl('https://instagram.com/');
       expect(result.shouldBlock).toBe(true);
-      expect(result.mode).toBe('soft');
+      expect(result.mode).toBe('hard');
+      expect(result.redirectUrl).toBe('/direct/inbox/');
     });
 
     it('should block explore', () => {
@@ -342,32 +343,7 @@ describe('getBlockDecision', () => {
     expect(result.reason).toContain('disabled');
   });
 
-  it('should respect global pause', () => {
-    const config = {
-      ...DEFAULT_STORAGE,
-      pause: {
-        globalUntil: Date.now() + 60000,
-        platforms: {},
-      },
-    };
-    const result = getBlockDecision('https://twitter.com/', config);
-    expect(result.shouldBlock).toBe(false);
-    expect(result.reason).toContain('paused');
-  });
-
-  it('should respect platform pause', () => {
-    const config = {
-      ...DEFAULT_STORAGE,
-      pause: {
-        globalUntil: null,
-        platforms: { twitter: Date.now() + 60000 },
-      },
-    };
-    const result = getBlockDecision('https://twitter.com/', config);
-    expect(result.shouldBlock).toBe(false);
-  });
-
-  it('should block when enabled and not paused', () => {
+  it('should block when enabled', () => {
     const result = getBlockDecision('https://twitter.com/', DEFAULT_STORAGE);
     expect(result.shouldBlock).toBe(true);
     expect(result.mode).toBe('hard');
@@ -380,14 +356,14 @@ describe('getBlockDecision', () => {
         ...DEFAULT_STORAGE.platforms,
         twitter: {
           ...DEFAULT_STORAGE.platforms.twitter,
-          hardBlocks: { home: false, explore: true },
+          hardBlocks: { home: false },
         },
       },
     };
 
-    // Home should be allowed
+    // Home should be allowed when disabled in config
     expect(getBlockDecision('https://twitter.com/', config).shouldBlock).toBe(false);
-    // Explore should still be blocked
-    expect(getBlockDecision('https://twitter.com/explore', config).shouldBlock).toBe(true);
+    // Messages should always be allowed
+    expect(getBlockDecision('https://twitter.com/messages', config).shouldBlock).toBe(false);
   });
 });

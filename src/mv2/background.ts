@@ -1,14 +1,18 @@
 /**
  * Background Script (MV2 - Firefox)
  *
- * Uses webRequest API for blocking (instead of declarativeNetRequest)
+ * Simple blocking via webNavigation API.
+ * Blocks algorithmic feeds, redirects to safe pages.
  */
 
-import { Storage } from '../shared/storage.js';
-import { getBlockDecision, buildRedirectUrl, getPlatformFromUrl } from '../shared/rules.js';
-import type { ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
+declare const browser: typeof chrome | undefined;
 
-// Cache config to avoid async storage access in webRequest handler
+import { Storage } from '../shared/storage.js';
+import { getBlockDecision, buildRedirectUrl } from '../shared/rules.js';
+import type { ExtensionMessage, ExtensionResponse, StorageSchema } from '../shared/types.js';
+
+const api = typeof browser !== 'undefined' ? browser : chrome;
+
 let cachedConfig: StorageSchema | null = null;
 
 /**
@@ -16,85 +20,59 @@ let cachedConfig: StorageSchema | null = null;
  */
 async function init(): Promise<void> {
   console.log('[IntentionalBrowsing] Initializing (MV2)...');
-
-  // Load and cache config
   cachedConfig = await Storage.load();
-
-  // Set up webRequest listener
-  setupWebRequestListener();
-
-  console.log('[IntentionalBrowsing] Initialized with config:', cachedConfig.globalEnabled ? 'enabled' : 'disabled');
+  setupWebNavigationListeners();
+  console.log('[IntentionalBrowsing] Initialized:', cachedConfig.globalEnabled ? 'enabled' : 'disabled');
 }
 
 /**
- * Set up webRequest listener for blocking
+ * Handle a navigation to potentially blocked URL
  */
-function setupWebRequestListener(): void {
-  const urls = [
-    '*://twitter.com/*',
-    '*://www.twitter.com/*',
-    '*://x.com/*',
-    '*://www.x.com/*',
-    '*://mobile.twitter.com/*',
-    '*://mobile.x.com/*',
-    '*://reddit.com/*',
-    '*://www.reddit.com/*',
-    '*://old.reddit.com/*',
-    '*://new.reddit.com/*',
-    '*://youtube.com/*',
-    '*://www.youtube.com/*',
-    '*://m.youtube.com/*',
-    '*://instagram.com/*',
-    '*://www.instagram.com/*',
-    '*://facebook.com/*',
-    '*://www.facebook.com/*',
-    '*://m.facebook.com/*',
-    '*://linkedin.com/*',
-    '*://www.linkedin.com/*',
-    '*://tiktok.com/*',
-    '*://www.tiktok.com/*',
-  ];
+async function handleNavigation(tabId: number, url: string): Promise<void> {
+  const config = cachedConfig || await Storage.load();
+  const decision = getBlockDecision(url, config);
 
-  // Use browser namespace for Firefox compatibility
-  const api = typeof browser !== 'undefined' ? browser : chrome;
+  if (!decision.shouldBlock || decision.mode !== 'hard' || !decision.redirectUrl) {
+    return;
+  }
 
-  api.webRequest.onBeforeRequest.addListener(
-    handleRequest,
-    { urls, types: ['main_frame'] },
-    ['blocking']
-  );
+  const redirectUrl = buildRedirectUrl(url, decision.redirectUrl, api.runtime.id);
+
+  console.log('[IntentionalBrowsing] Blocking:', url, '→', redirectUrl);
+  await Storage.incrementBlockCount();
+  cachedConfig = await Storage.load();
+  await api.tabs.update(tabId, { url: redirectUrl });
 }
 
 /**
- * Handle a web request
+ * Set up webNavigation listeners
  */
-function handleRequest(
-  details: chrome.webRequest.WebRequestBodyDetails
-): chrome.webRequest.BlockingResponse | void {
-  if (!cachedConfig) {
-    return; // Config not loaded yet
-  }
+function setupWebNavigationListeners(): void {
+  api.webNavigation.onBeforeNavigate.addListener(async (details) => {
+    if (details.frameId !== 0) return;
+    await handleNavigation(details.tabId, details.url);
+  });
 
-  const decision = getBlockDecision(details.url, cachedConfig);
-
-  if (decision.shouldBlock && decision.mode === 'hard' && decision.redirectUrl) {
-    // Get extension ID for redirect URL
-    const api = typeof browser !== 'undefined' ? browser : chrome;
-    const extensionId = api.runtime.id;
-    const redirectUrl = buildRedirectUrl(details.url, decision.redirectUrl, extensionId);
-
-    // Increment block count asynchronously
-    Storage.incrementBlockCount().catch(console.error);
-
-    return { redirectUrl };
-  }
+  api.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
+    if (details.frameId !== 0) return;
+    await handleNavigation(details.tabId, details.url);
+  }, {
+    url: [
+      { hostContains: 'twitter.com' },
+      { hostContains: 'x.com' },
+      { hostContains: 'reddit.com' },
+      { hostContains: 'youtube.com' },
+      { hostContains: 'instagram.com' },
+      { hostContains: 'facebook.com' },
+      { hostContains: 'linkedin.com' },
+      { hostContains: 'tiktok.com' },
+    ]
+  });
 }
 
 /**
  * Handle messages from content scripts and popup
  */
-const api = typeof browser !== 'undefined' ? browser : chrome;
-
 api.runtime.onMessage.addListener(
   (message: ExtensionMessage, _sender: chrome.runtime.MessageSender, sendResponse: (response: ExtensionResponse) => void) => {
     handleMessage(message)
@@ -103,8 +81,6 @@ api.runtime.onMessage.addListener(
         console.error('[IntentionalBrowsing] Message handler error:', error);
         sendResponse({ success: false, error: error.message });
       });
-
-    // Return true to indicate async response
     return true;
   }
 );
@@ -133,23 +109,7 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
 
     case 'NAVIGATE': {
       const { tabId, url } = message.payload as { tabId: number; url: string };
-      const navApi = typeof browser !== 'undefined' ? browser : chrome;
-      await navApi.tabs.update(tabId, { url });
-      return { success: true };
-    }
-
-    case 'PAUSE': {
-      const { duration, platformId } = message.payload as { duration: number; platformId?: PlatformId };
-      const until = Date.now() + duration;
-      await Storage.setPause(until, platformId);
-      cachedConfig = await Storage.load();
-      return { success: true, data: { until } };
-    }
-
-    case 'RESUME': {
-      const { platformId } = (message.payload as { platformId?: PlatformId }) || {};
-      await Storage.clearPause(platformId);
-      cachedConfig = await Storage.load();
+      await api.tabs.update(tabId, { url });
       return { success: true };
     }
 
@@ -164,37 +124,13 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
       return { success: true };
     }
 
-    case 'URL_CHANGED': {
-      const { url, tabId } = message.payload as { url: string; tabId?: number };
-      const config = cachedConfig || await Storage.load();
-      const decision = getBlockDecision(url, config);
-
-      if (decision.shouldBlock && decision.mode === 'hard' && decision.redirectUrl) {
-        const navApi = typeof browser !== 'undefined' ? browser : chrome;
-        const redirectUrl = buildRedirectUrl(url, decision.redirectUrl, navApi.runtime.id);
-
-        // Increment block count
-        await Storage.incrementBlockCount();
-        cachedConfig = await Storage.load();
-
-        // Redirect the tab
-        if (tabId) {
-          await navApi.tabs.update(tabId, { url: redirectUrl });
-        }
-
-        return { success: true, data: { blocked: true, redirectUrl } };
-      }
-
-      return { success: true, data: { blocked: false } };
-    }
-
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
   }
 }
 
 /**
- * Listen for storage changes to update cache
+ * Listen for storage changes
  */
 api.storage.onChanged.addListener(async (changes, areaName) => {
   if (areaName === 'local' && changes.config) {
@@ -202,5 +138,4 @@ api.storage.onChanged.addListener(async (changes, areaName) => {
   }
 });
 
-// Initialize
 init();

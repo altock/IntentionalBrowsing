@@ -88,10 +88,17 @@ class YouTubeContentScript extends PlatformContentScript {
         this.observer = observeAndHide(this.softBlockSelectors, document.body);
       }
 
-      // Also observe for homepage
+      // Also observe for homepage with debouncing
       if (this.isHomepage()) {
+        let scheduled = false;
         const homepageObserver = new MutationObserver(() => {
-          this.softBlockHomepage();
+          if (!scheduled) {
+            scheduled = true;
+            requestAnimationFrame(() => {
+              scheduled = false;
+              this.softBlockHomepage();
+            });
+          }
         });
         homepageObserver.observe(document.body, {
           childList: true,

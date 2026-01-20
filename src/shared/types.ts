@@ -52,35 +52,11 @@ export interface PlatformConfig {
 }
 
 /**
- * Twitter-specific custom settings
- */
-export interface TwitterCustomSettings {
-  redirectToFollowing: boolean;
-}
-
-/**
- * Reddit-specific custom settings
- */
-export interface RedditCustomSettings {
-  blockedSubreddits: string[];
-}
-
-/**
  * YouTube-specific custom settings
  */
 export interface YouTubeCustomSettings {
   disableAutoplay: boolean;
   shortsRedirectToWatch: boolean;
-}
-
-/**
- * Pause configuration
- */
-export interface PauseConfig {
-  /** Unix timestamp (ms) when global pause expires, or null */
-  globalUntil: number | null;
-  /** Per-platform pause timestamps */
-  platforms: Partial<Record<PlatformId, number>>;
 }
 
 /**
@@ -98,7 +74,6 @@ export interface StorageSchema {
   schemaVersion: number;
   globalEnabled: boolean;
   platforms: Record<PlatformId, PlatformConfig>;
-  pause: PauseConfig;
   stats: Stats;
 }
 
@@ -152,11 +127,8 @@ export type MessageType =
   | 'SET_CONFIG'
   | 'CHECK_URL'
   | 'NAVIGATE'
-  | 'PAUSE'
-  | 'RESUME'
   | 'GET_STATS'
-  | 'INCREMENT_BLOCK_COUNT'
-  | 'URL_CHANGED';
+  | 'INCREMENT_BLOCK_COUNT';
 
 /**
  * Message payload for communication between scripts

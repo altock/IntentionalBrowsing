@@ -5,8 +5,7 @@
   "description": "Block algorithmic feeds while preserving utility features like DMs, search, and subscriptions",
   "permissions": [
     "storage",
-    "declarativeNetRequest",
-    "declarativeNetRequestFeedback"
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "*://twitter.com/*",
@@ -146,9 +145,9 @@
     ]
   },
   "icons": {
-    "16": "icons/icon16.svg",
-    "32": "icons/icon32.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }

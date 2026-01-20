@@ -18,17 +18,9 @@ export const TWITTER_DEFAULT: PlatformConfig = {
   enabled: true,
   hardBlocks: {
     home: true,
-    explore: true,
   },
-  softBlocks: {
-    forYouTab: true,
-    trendsSidebar: true,
-    whoToFollow: true,
-  },
-  redirectTarget: '/messages',
-  customSettings: {
-    redirectToFollowing: true,
-  },
+  softBlocks: {},
+  redirectTarget: 'blocked',
 };
 
 /**
@@ -77,14 +69,11 @@ export const YOUTUBE_DEFAULT: PlatformConfig = {
 export const INSTAGRAM_DEFAULT: PlatformConfig = {
   enabled: true,
   hardBlocks: {
+    home: true,
     explore: true,
     reels: true,
   },
-  softBlocks: {
-    feed: true,
-    suggestedPosts: true,
-    suggestedFollows: true,
-  },
+  softBlocks: {},
   redirectTarget: '/direct/inbox/',
 };
 
@@ -150,10 +139,6 @@ export const DEFAULT_STORAGE: StorageSchema = {
   schemaVersion: SCHEMA_VERSION,
   globalEnabled: true,
   platforms: DEFAULT_PLATFORMS,
-  pause: {
-    globalUntil: null,
-    platforms: {},
-  },
   stats: {
     blocksTotal: 0,
     lastBlock: null,
@@ -166,10 +151,10 @@ export const DEFAULT_STORAGE: StorageSchema = {
 export const TWITTER_RULES: PlatformRules = {
   hosts: ['twitter.com', 'x.com', 'www.twitter.com', 'www.x.com', 'mobile.twitter.com', 'mobile.x.com'],
   patterns: [
-    { pattern: '/', mode: 'hard', redirect: '/messages', description: 'Home feed' },
-    { pattern: '/home', mode: 'hard', redirect: '/messages', description: 'Home feed (explicit)' },
-    { pattern: '/explore', mode: 'hard', redirect: '/messages', description: 'Explore page' },
-    { pattern: '/explore/**', mode: 'hard', redirect: '/messages', description: 'Explore subpages' },
+    { pattern: '/', mode: 'hard', redirect: 'blocked', description: 'Home feed' },
+    { pattern: '/home', mode: 'hard', redirect: 'blocked', description: 'Home feed (explicit)' },
+    { pattern: '/explore', mode: 'allow', description: 'Explore page' },
+    { pattern: '/explore/**', mode: 'allow', description: 'Explore subpages' },
     { pattern: '/search', mode: 'allow', description: 'Search' },
     { pattern: '/search/**', mode: 'allow', description: 'Search results' },
     { pattern: '/notifications', mode: 'allow', description: 'Notifications' },
@@ -181,7 +166,7 @@ export const TWITTER_RULES: PlatformRules = {
     { pattern: '/*/status/*', mode: 'allow', description: 'Individual tweets' },
     { pattern: '/*', mode: 'allow', description: 'User profiles' },
   ],
-  defaultRedirect: '/messages',
+  defaultRedirect: 'blocked',
 };
 
 /**
@@ -246,7 +231,7 @@ export const YOUTUBE_RULES: PlatformRules = {
 export const INSTAGRAM_RULES: PlatformRules = {
   hosts: ['instagram.com', 'www.instagram.com'],
   patterns: [
-    { pattern: '/', mode: 'soft', description: 'Home feed (soft block)' },
+    { pattern: '/', mode: 'hard', redirect: '/direct/inbox/', description: 'Home feed' },
     { pattern: '/explore', mode: 'hard', redirect: '/direct/inbox/', description: 'Explore' },
     { pattern: '/explore/**', mode: 'hard', redirect: '/direct/inbox/', description: 'Explore pages' },
     { pattern: '/reels', mode: 'hard', redirect: '/direct/inbox/', description: 'Reels tab' },
@@ -381,27 +366,6 @@ export const YOUTUBE_SELECTORS: PlatformSelectors = {
 };
 
 /**
- * Instagram selectors for soft blocking
- */
-export const INSTAGRAM_SELECTORS: PlatformSelectors = {
-  feed: {
-    primary: 'main[role="main"] article',
-    fallbacks: ['[data-testid="post-container"]'],
-    description: 'Feed posts',
-  },
-  suggestedPosts: {
-    primary: '[data-testid="suggested-posts"]',
-    fallbacks: ['article:has([aria-label*="Suggested"])'],
-    description: 'Suggested posts section',
-  },
-  suggestedFollows: {
-    primary: '[data-testid="suggested-accounts"]',
-    fallbacks: ['[aria-label*="Suggested for you"]'],
-    description: 'Suggested accounts to follow',
-  },
-};
-
-/**
  * Facebook selectors for soft blocking
  */
 export const FACEBOOK_SELECTORS: PlatformSelectors = {
@@ -444,7 +408,6 @@ export const LINKEDIN_SELECTORS: PlatformSelectors = {
 export const PLATFORM_SELECTORS: Partial<Record<PlatformId, PlatformSelectors>> = {
   twitter: TWITTER_SELECTORS,
   youtube: YOUTUBE_SELECTORS,
-  instagram: INSTAGRAM_SELECTORS,
   facebook: FACEBOOK_SELECTORS,
   linkedin: LINKEDIN_SELECTORS,
 };

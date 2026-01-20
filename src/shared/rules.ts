@@ -1,6 +1,5 @@
 import type { BlockDecision, BlockMode, PlatformId, StorageSchema } from './types.js';
 import { PLATFORM_RULES, DEFAULT_STORAGE } from './config.js';
-import { Storage } from './storage.js';
 
 /**
  * Match a URL path against a pattern
@@ -185,15 +184,6 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
       shouldBlock: false,
       mode: 'allow',
       reason: `${platformId} is disabled`,
-    };
-  }
-
-  // Check if paused (global or platform-specific)
-  if (Storage.isPaused(config, platformId)) {
-    return {
-      shouldBlock: false,
-      mode: 'allow',
-      reason: 'Blocking is paused',
     };
   }
 

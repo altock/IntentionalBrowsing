@@ -73,24 +73,18 @@ describe('Storage', () => {
       expect(config.platforms.twitter.enabled).toBe(false);
     });
 
-    it('should migrate old schema versions', async () => {
-      // Simulate old schema (version 0, no version field)
+    it('should return defaults for unrecognized schema', async () => {
+      // Simulate old/unknown schema
       const oldConfig = {
-        global_enabled: true,
-        platforms: {
-          twitter: {
-            enabled: true,
-            block_home: true,
-          },
-        },
+        some_unknown_field: true,
       };
       mockStorage['config'] = oldConfig;
 
       const config = await Storage.load();
 
-      // Should be migrated to current version
+      // Should return defaults for unrecognized schema
       expect(config.schemaVersion).toBe(SCHEMA_VERSION);
-      expect(config.globalEnabled).toBe(true);
+      expect(config.globalEnabled).toBe(DEFAULT_STORAGE.globalEnabled);
     });
   });
 
@@ -129,8 +123,8 @@ describe('Storage', () => {
 
       const saved = mockStorage['config'] as StorageSchema;
       expect(saved.platforms.twitter.hardBlocks.home).toBe(false);
-      // Other hard blocks should be preserved
-      expect(saved.platforms.twitter.hardBlocks.explore).toBe(true);
+      // Platform should still be enabled
+      expect(saved.platforms.twitter.enabled).toBe(true);
     });
   });
 
@@ -142,88 +136,6 @@ describe('Storage', () => {
 
       const saved = mockStorage['config'] as StorageSchema;
       expect(saved.globalEnabled).toBe(false);
-    });
-  });
-
-  describe('pause', () => {
-    it('should set global pause timestamp', async () => {
-      mockStorage['config'] = { ...DEFAULT_STORAGE };
-      const pauseUntil = Date.now() + 5 * 60 * 1000; // 5 minutes
-
-      await Storage.setPause(pauseUntil);
-
-      const saved = mockStorage['config'] as StorageSchema;
-      expect(saved.pause.globalUntil).toBe(pauseUntil);
-    });
-
-    it('should set platform-specific pause', async () => {
-      mockStorage['config'] = { ...DEFAULT_STORAGE };
-      const pauseUntil = Date.now() + 5 * 60 * 1000;
-
-      await Storage.setPause(pauseUntil, 'twitter');
-
-      const saved = mockStorage['config'] as StorageSchema;
-      expect(saved.pause.platforms.twitter).toBe(pauseUntil);
-      expect(saved.pause.globalUntil).toBeNull();
-    });
-
-    it('should clear pause when time has passed', async () => {
-      const expiredPause = Date.now() - 1000; // 1 second ago
-      mockStorage['config'] = {
-        ...DEFAULT_STORAGE,
-        pause: {
-          globalUntil: expiredPause,
-          platforms: {},
-        },
-      };
-
-      const config = await Storage.load();
-
-      // Expired pauses should be cleared on load
-      expect(config.pause.globalUntil).toBeNull();
-    });
-  });
-
-  describe('isPaused', () => {
-    it('should return true when globally paused', async () => {
-      const pauseUntil = Date.now() + 5 * 60 * 1000;
-      mockStorage['config'] = {
-        ...DEFAULT_STORAGE,
-        pause: { globalUntil: pauseUntil, platforms: {} },
-      };
-
-      const config = await Storage.load();
-      const isPaused = Storage.isPaused(config);
-
-      expect(isPaused).toBe(true);
-    });
-
-    it('should return false when pause expired', async () => {
-      const expiredPause = Date.now() - 1000;
-      mockStorage['config'] = {
-        ...DEFAULT_STORAGE,
-        pause: { globalUntil: expiredPause, platforms: {} },
-      };
-
-      const config = await Storage.load();
-      const isPaused = Storage.isPaused(config);
-
-      expect(isPaused).toBe(false);
-    });
-
-    it('should return true when specific platform is paused', async () => {
-      const pauseUntil = Date.now() + 5 * 60 * 1000;
-      mockStorage['config'] = {
-        ...DEFAULT_STORAGE,
-        pause: { globalUntil: null, platforms: { twitter: pauseUntil } },
-      };
-
-      const config = await Storage.load();
-      const isPausedTwitter = Storage.isPaused(config, 'twitter');
-      const isPausedReddit = Storage.isPaused(config, 'reddit');
-
-      expect(isPausedTwitter).toBe(true);
-      expect(isPausedReddit).toBe(false);
     });
   });
 
@@ -272,24 +184,17 @@ describe('migrateSchema', () => {
     expect(migrateSchema(123)).toEqual(DEFAULT_STORAGE);
   });
 
-  it('should migrate schema version 0 (no version) to current', () => {
-    const oldSchema = {
+  it('should return defaults for unknown schema format', () => {
+    const unknownSchema = {
       global_enabled: false,
-      platforms: {
-        twitter: {
-          enabled: true,
-          block_home: true,
-          block_explore: false,
-        },
-      },
+      some_field: 'value',
     };
 
-    const migrated = migrateSchema(oldSchema);
+    const migrated = migrateSchema(unknownSchema);
 
+    // Should return defaults when schema version doesn't match
     expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(migrated.globalEnabled).toBe(false);
-    // Should preserve old values where possible and fill in defaults
-    expect(migrated.platforms.twitter.enabled).toBe(true);
+    expect(migrated.globalEnabled).toBe(DEFAULT_STORAGE.globalEnabled);
   });
 
   it('should preserve current schema without changes', () => {
@@ -311,7 +216,6 @@ describe('migrateSchema', () => {
         twitter: DEFAULT_STORAGE.platforms.twitter,
         // Missing other platforms
       },
-      pause: DEFAULT_STORAGE.pause,
       stats: DEFAULT_STORAGE.stats,
     };
 

@@ -1,11 +1,11 @@
 /**
  * Reddit Content Script
  *
- * Reddit mostly uses hard blocks, but this handles SPA navigation
+ * Reddit uses hard blocks handled by background script.
+ * This handles SPA navigation detection.
  */
 
-import { PlatformContentScript, sendMessage } from '../base.js';
-import type { StorageSchema } from '../../shared/types.js';
+import { PlatformContentScript } from '../base.js';
 
 class RedditContentScript extends PlatformContentScript {
   constructor() {
@@ -13,15 +13,13 @@ class RedditContentScript extends PlatformContentScript {
   }
 
   protected applySoftBlocks(): void {
-    // Reddit primarily uses hard blocks
-    // Could add soft blocks for sidebar recommendations in the future
+    // Reddit uses hard blocks only
   }
 
   protected setupObserver(): void {
-    // No soft blocks to observe for Reddit currently
+    // No soft blocks to observe
   }
 }
 
-// Initialize
 const script = new RedditContentScript();
 script.init().catch(console.error);
