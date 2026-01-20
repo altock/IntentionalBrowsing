@@ -104,7 +104,7 @@ export const LINKEDIN_DEFAULT: PlatformConfig = {
     feed: true,
     peopleYouMayKnow: true,
   },
-  redirectTarget: '/messaging/',
+  redirectTarget: 'feed-block',
 };
 
 /**
