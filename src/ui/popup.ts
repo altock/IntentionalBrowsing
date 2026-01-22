@@ -59,6 +59,12 @@ async function saveConfig(config: StorageSchema): Promise<void> {
   currentConfig = config;
 }
 
+function createElementFromHTML(html: string): Element {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html.trim(), 'image/svg+xml');
+  return doc.documentElement;
+}
+
 function render(config: StorageSchema): void {
   const popup = document.querySelector('.popup')!;
   const globalToggle = document.getElementById('global-enabled') as HTMLInputElement;
@@ -67,42 +73,93 @@ function render(config: StorageSchema): void {
   globalToggle.checked = config.globalEnabled;
   popup.classList.toggle('disabled', !config.globalEnabled);
 
-  platformsContainer.innerHTML = PLATFORM_ORDER.map((platformId) => {
+  // Clear existing content
+  platformsContainer.textContent = '';
+
+  PLATFORM_ORDER.forEach((platformId) => {
     const platformConfig = config.platforms[platformId];
     const redirectOptions = PLATFORM_REDIRECT_OPTIONS[platformId];
     const hasSettings = redirectOptions.length > 1;
 
-    const settingsHtml = hasSettings ? `
-      <div class="platform-settings expanded">
-        <label class="setting-row">
-          <span class="setting-label">Redirect to:</span>
-          <select class="redirect-select" data-platform="${platformId}">
-            ${redirectOptions.map(opt =>
-              `<option value="${opt.value}" ${platformConfig.redirectTarget === opt.value ? 'selected' : ''}>${opt.label}</option>`
-            ).join('')}
-          </select>
-        </label>
-      </div>
-    ` : '';
+    // Create platform container
+    const platformDiv = document.createElement('div');
+    platformDiv.className = 'platform';
+    platformDiv.dataset.platform = platformId;
 
-    return `
-      <div class="platform" data-platform="${platformId}">
-        <div class="platform-row">
-          <div class="platform-info">
-            <span class="platform-icon">${PLATFORM_ICONS[platformId]}</span>
-            <span class="platform-name">${PLATFORM_NAMES[platformId]}</span>
-          </div>
-          <div class="platform-controls">
-            <label class="platform-toggle">
-              <input type="checkbox" data-platform="${platformId}" ${platformConfig.enabled ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-        ${settingsHtml}
-      </div>
-    `;
-  }).join('');
+    // Create platform row
+    const platformRow = document.createElement('div');
+    platformRow.className = 'platform-row';
+
+    // Create platform info
+    const platformInfo = document.createElement('div');
+    platformInfo.className = 'platform-info';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'platform-icon';
+    iconSpan.appendChild(createElementFromHTML(PLATFORM_ICONS[platformId]));
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'platform-name';
+    nameSpan.textContent = PLATFORM_NAMES[platformId];
+
+    platformInfo.appendChild(iconSpan);
+    platformInfo.appendChild(nameSpan);
+
+    // Create platform controls
+    const platformControls = document.createElement('div');
+    platformControls.className = 'platform-controls';
+
+    const toggleLabel = document.createElement('label');
+    toggleLabel.className = 'platform-toggle';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.platform = platformId;
+    checkbox.checked = platformConfig.enabled;
+
+    const slider = document.createElement('span');
+    slider.className = 'toggle-slider';
+
+    toggleLabel.appendChild(checkbox);
+    toggleLabel.appendChild(slider);
+    platformControls.appendChild(toggleLabel);
+
+    platformRow.appendChild(platformInfo);
+    platformRow.appendChild(platformControls);
+    platformDiv.appendChild(platformRow);
+
+    // Add settings if needed
+    if (hasSettings) {
+      const settingsDiv = document.createElement('div');
+      settingsDiv.className = 'platform-settings expanded';
+
+      const settingLabel = document.createElement('label');
+      settingLabel.className = 'setting-row';
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'setting-label';
+      labelSpan.textContent = 'Redirect to:';
+
+      const select = document.createElement('select');
+      select.className = 'redirect-select';
+      select.dataset.platform = platformId;
+
+      redirectOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        option.selected = platformConfig.redirectTarget === opt.value;
+        select.appendChild(option);
+      });
+
+      settingLabel.appendChild(labelSpan);
+      settingLabel.appendChild(select);
+      settingsDiv.appendChild(settingLabel);
+      platformDiv.appendChild(settingsDiv);
+    }
+
+    platformsContainer.appendChild(platformDiv);
+  });
 }
 
 async function handleGlobalToggle(enabled: boolean): Promise<void> {
