@@ -59,10 +59,15 @@ async function saveConfig(config: StorageSchema): Promise<void> {
   currentConfig = config;
 }
 
-function createElementFromHTML(html: string): Element {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html.trim(), 'image/svg+xml');
-  return doc.documentElement;
+function createElementFromHTML(html: string): Element | null {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<body>${html}</body>`, 'text/html');
+    return doc.body?.firstElementChild || null;
+  } catch (e) {
+    console.error('[IntentionalBrowsing] Failed to parse HTML:', e);
+    return null;
+  }
 }
 
 function render(config: StorageSchema): void {
@@ -96,7 +101,10 @@ function render(config: StorageSchema): void {
 
     const iconSpan = document.createElement('span');
     iconSpan.className = 'platform-icon';
-    iconSpan.appendChild(createElementFromHTML(PLATFORM_ICONS[platformId]));
+    const iconElement = createElementFromHTML(PLATFORM_ICONS[platformId]);
+    if (iconElement) {
+      iconSpan.appendChild(iconElement);
+    }
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'platform-name';
@@ -201,10 +209,16 @@ function setupEventListeners(): void {
 }
 
 async function init(): Promise<void> {
-  setupEventListeners();
-  const config = await loadConfig();
-  if (config) {
-    render(config);
+  try {
+    setupEventListeners();
+    const config = await loadConfig();
+    if (config) {
+      render(config);
+    } else {
+      console.error('[IntentionalBrowsing] Failed to load config');
+    }
+  } catch (e) {
+    console.error('[IntentionalBrowsing] Popup init error:', e);
   }
 }
 

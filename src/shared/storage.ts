@@ -1,7 +1,14 @@
 import type { PlatformConfig, PlatformId, StorageSchema } from './types.js';
 import { DEFAULT_STORAGE, SCHEMA_VERSION } from './config.js';
 
+declare const browser: typeof chrome | undefined;
+
 const STORAGE_KEY = 'config';
+
+// Use browser API (Firefox) if available, otherwise chrome (Chrome/Edge)
+function getStorageApi() {
+  return typeof browser !== 'undefined' ? browser.storage.local : chrome.storage.local;
+}
 
 function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
@@ -44,7 +51,7 @@ export const Storage = {
    * Load configuration from storage, applying migrations and defaults
    */
   async load(): Promise<StorageSchema> {
-    const result = await chrome.storage.local.get(STORAGE_KEY);
+    const result = await getStorageApi().get(STORAGE_KEY) || {};
     const migrated = migrateSchema(result[STORAGE_KEY]);
 
     // Save if migrations occurred
@@ -59,7 +66,7 @@ export const Storage = {
    * Save configuration to storage
    */
   async save(config: StorageSchema): Promise<void> {
-    await chrome.storage.local.set({ [STORAGE_KEY]: config });
+    await getStorageApi().set({ [STORAGE_KEY]: config });
   },
 
   /**

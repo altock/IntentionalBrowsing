@@ -1,10 +1,11 @@
 {
   "manifest_version": 2,
   "name": "Intentional Browsing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Block the feed. Keep the signal. Visit on purpose.",
   "permissions": [
     "storage",
+    "webNavigation",
     "webRequest",
     "webRequestBlocking",
     "*://twitter.com/*",

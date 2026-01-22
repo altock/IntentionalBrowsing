@@ -1,6 +1,8 @@
 import type { BlockDecision, BlockMode, PlatformId, StorageSchema } from './types.js';
 import { PLATFORM_RULES, DEFAULT_STORAGE } from './config.js';
 
+declare const browser: typeof chrome | undefined;
+
 /**
  * Match a URL path against a pattern
  * Supports:
@@ -221,7 +223,25 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
     }
   }
 
-  return baseDecision;
+  // Check if user's redirect target is a navigation-level redirect
+  const redirectTarget = platformConfig.redirectTarget;
+  const isNavigationRedirect = redirectTarget === 'blocked' || redirectTarget.startsWith('/');
+
+  if (!isNavigationRedirect) {
+    // Non-navigation redirects (following-tab, feed-block, etc.) are handled by content scripts
+    // Don't block at navigation level - let the page load
+    return {
+      shouldBlock: false,
+      mode: 'allow',
+      reason: `Redirect '${redirectTarget}' handled by content script`,
+    };
+  }
+
+  // Apply user's redirect target for navigation-level redirects
+  return {
+    ...baseDecision,
+    redirectUrl: redirectTarget,
+  };
 }
 
 /**
@@ -300,13 +320,13 @@ function getHardBlockSetting(platformId: PlatformId, pathname: string): string |
 export function buildRedirectUrl(
   originalUrl: string,
   redirectTarget: string,
-  extensionId?: string
+  _extensionId?: string
 ): string {
   // Special case: redirect to blocked page
   if (redirectTarget === 'blocked') {
-    const blockedPage = extensionId
-      ? `chrome-extension://${extensionId}/ui/blocked.html`
-      : '/ui/blocked.html';
+    // Use runtime.getURL for correct extension URL in both Chrome and Firefox
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    const blockedPage = api.runtime.getURL('ui/blocked.html');
     const params = new URLSearchParams({ url: originalUrl });
     return `${blockedPage}?${params.toString()}`;
   }
