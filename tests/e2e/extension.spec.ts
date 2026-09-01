@@ -114,6 +114,16 @@ function isBlockedExtensionPage(url: string, extensionId: string): boolean {
   }
 }
 
+function isTwitterOrXPage(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'twitter.com' || host.endsWith('.twitter.com') ||
+      host === 'x.com' || host.endsWith('.x.com');
+  } catch {
+    return false;
+  }
+}
+
 test.describe('Intentional Browsing Extension', () => {
   let context: BrowserContext;
   let extensionId: string;
@@ -181,6 +191,7 @@ test.describe('Intentional Browsing Extension', () => {
 
     // Twitter may ask for login, but the extension must not block this route.
     const url = page.url();
+    expect(isTwitterOrXPage(url)).toBe(true);
     expect(isBlockedExtensionPage(url, extensionId)).toBe(false);
 
     await page.close();
@@ -197,6 +208,7 @@ test.describe('Intentional Browsing Extension', () => {
 
     // Verify the extension did not redirect this allowed route to its blocked page.
     const url = page.url();
+    expect(isTwitterOrXPage(url)).toBe(true);
     expect(isBlockedExtensionPage(url, extensionId)).toBe(false);
 
     await page.close();

@@ -20,7 +20,7 @@ export function havePlatformSettingsChanged(
 }
 
 /**
- * Whether YouTube content-script blocking behavior should run.
+ * Whether YouTube's independently configured content-script protections should run.
  */
 export function shouldApplyYouTubeContentBlocking(config?: StorageSchema | null): boolean {
   if (!config) {
@@ -28,7 +28,15 @@ export function shouldApplyYouTubeContentBlocking(config?: StorageSchema | null)
   }
 
   const youtubeConfig = config.platforms.youtube;
-  return config.globalEnabled && youtubeConfig.enabled && youtubeConfig.redirectTarget === 'feed-block';
+  return config.globalEnabled && youtubeConfig.enabled;
+}
+
+/**
+ * Whether the YouTube homepage should use DOM-based feed blocking.
+ */
+export function shouldSoftBlockYouTubeHomepage(config?: StorageSchema | null): boolean {
+  return shouldApplyYouTubeContentBlocking(config) &&
+    config?.platforms.youtube.redirectTarget === 'feed-block';
 }
 
 /**

@@ -12,12 +12,16 @@
 import { PlatformContentScript, hideAllElements, observeAndHide, sendMessage } from '../base.js';
 import { YOUTUBE_SELECTORS } from '../../shared/config.js';
 import type { SelectorConfig, StorageSchema, YouTubeCustomSettings } from '../../shared/types.js';
-import { shouldApplyYouTubeContentBlocking } from '../../shared/platform-settings.js';
+import {
+  shouldApplyYouTubeContentBlocking,
+  shouldSoftBlockYouTubeHomepage,
+} from '../../shared/platform-settings.js';
 
 class YouTubeContentScript extends PlatformContentScript {
   private softBlockSelectors: SelectorConfig[] = [];
   private disableAutoplay = true;
   private shortsRedirectToWatch = true;
+  private shouldSoftBlockHomepage = false;
 
   constructor() {
     super('youtube');
@@ -32,6 +36,8 @@ class YouTubeContentScript extends PlatformContentScript {
       console.log('[IntentionalBrowsing] YouTube content blocking is disabled');
       return;
     }
+
+    this.shouldSoftBlockHomepage = shouldSoftBlockYouTubeHomepage(config);
 
     if (config?.platforms.youtube.softBlocks) {
       const softBlocks = config.platforms.youtube.softBlocks;
@@ -55,7 +61,7 @@ class YouTubeContentScript extends PlatformContentScript {
     await super.init();
 
     // Soft block homepage feed if on homepage
-    if (this.isHomepage()) {
+    if (this.shouldSoftBlockHomepage && this.isHomepage()) {
       this.softBlockHomepage();
     }
 
@@ -83,7 +89,7 @@ class YouTubeContentScript extends PlatformContentScript {
     }
 
     // Re-apply homepage soft block if needed
-    if (this.isHomepage()) {
+    if (this.shouldSoftBlockHomepage && this.isHomepage()) {
       this.softBlockHomepage();
     }
   }
@@ -95,7 +101,7 @@ class YouTubeContentScript extends PlatformContentScript {
       }
 
       // Also observe for homepage with debouncing
-      if (this.isHomepage()) {
+      if (this.shouldSoftBlockHomepage && this.isHomepage()) {
         let scheduled = false;
         const homepageObserver = new MutationObserver(() => {
           if (!scheduled) {

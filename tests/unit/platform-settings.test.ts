@@ -4,6 +4,7 @@ import {
   havePlatformSettingsChanged,
   normalizeTwitterListPath,
   shouldApplyYouTubeContentBlocking,
+  shouldSoftBlockYouTubeHomepage,
 } from '../../src/shared/platform-settings.js';
 
 describe('shouldApplyYouTubeContentBlocking', () => {
@@ -31,7 +32,7 @@ describe('shouldApplyYouTubeContentBlocking', () => {
     expect(shouldApplyYouTubeContentBlocking(config)).toBe(false);
   });
 
-  it('returns false when redirect target is not feed-block', () => {
+  it('keeps watch-page protections active when redirecting the homepage elsewhere', () => {
     const config = {
       ...DEFAULT_STORAGE,
       platforms: {
@@ -43,11 +44,32 @@ describe('shouldApplyYouTubeContentBlocking', () => {
       },
     };
 
-    expect(shouldApplyYouTubeContentBlocking(config)).toBe(false);
+    expect(shouldApplyYouTubeContentBlocking(config)).toBe(true);
   });
 
-  it('returns true when global and YouTube are enabled and redirect target is feed-block', () => {
+  it('returns true when global and YouTube are enabled', () => {
     expect(shouldApplyYouTubeContentBlocking(DEFAULT_STORAGE)).toBe(true);
+  });
+});
+
+describe('shouldSoftBlockYouTubeHomepage', () => {
+  it('returns false when the homepage has a navigation-level redirect', () => {
+    const config = {
+      ...DEFAULT_STORAGE,
+      platforms: {
+        ...DEFAULT_STORAGE.platforms,
+        youtube: {
+          ...DEFAULT_STORAGE.platforms.youtube,
+          redirectTarget: '/feed/subscriptions',
+        },
+      },
+    };
+
+    expect(shouldSoftBlockYouTubeHomepage(config)).toBe(false);
+  });
+
+  it('returns true only for enabled feed-block mode', () => {
+    expect(shouldSoftBlockYouTubeHomepage(DEFAULT_STORAGE)).toBe(true);
   });
 });
 
