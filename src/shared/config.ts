@@ -21,6 +21,9 @@ export const TWITTER_DEFAULT: PlatformConfig = {
   },
   softBlocks: {},
   redirectTarget: 'blocked',
+  customSettings: {
+    listRedirectPath: '',
+  },
 };
 
 /**

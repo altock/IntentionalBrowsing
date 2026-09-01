@@ -139,6 +139,27 @@ describe('Storage', () => {
     });
   });
 
+  describe('update', () => {
+    it('serializes overlapping updates so later changes do not lose earlier ones', async () => {
+      mockStorage['config'] = deepClone(DEFAULT_STORAGE);
+
+      const disableGlobal = Storage.update((config) => {
+        config.globalEnabled = false;
+        return config;
+      });
+      const disableYouTube = Storage.update((config) => {
+        config.platforms.youtube.enabled = false;
+        return config;
+      });
+
+      await Promise.all([disableGlobal, disableYouTube]);
+
+      const saved = mockStorage['config'] as StorageSchema;
+      expect(saved.globalEnabled).toBe(false);
+      expect(saved.platforms.youtube.enabled).toBe(false);
+    });
+  });
+
   describe('incrementBlockCount', () => {
     it('should increment total block count', async () => {
       mockStorage['config'] = {
@@ -226,4 +247,43 @@ describe('migrateSchema', () => {
     expect(migrated.platforms.youtube).toBeDefined();
     expect(migrated.platforms.instagram).toBeDefined();
   });
+
+  it('should merge nested platform settings with defaults', () => {
+    const partialSchema = {
+      schemaVersion: SCHEMA_VERSION,
+      globalEnabled: true,
+      platforms: {
+        youtube: {
+          enabled: true,
+          redirectTarget: 'feed-block',
+          hardBlocks: { home: false },
+          softBlocks: { recommendations: false },
+          customSettings: { disableAutoplay: false },
+        },
+      },
+      stats: DEFAULT_STORAGE.stats,
+    };
+
+    const migrated = migrateSchema(partialSchema);
+
+    expect(migrated.platforms.youtube.hardBlocks).toMatchObject({
+      home: false,
+      shorts: true,
+      trending: true,
+      explore: true,
+    });
+    expect(migrated.platforms.youtube.softBlocks).toMatchObject({
+      recommendations: false,
+      endCards: true,
+      shortsInFeed: true,
+    });
+    expect(migrated.platforms.youtube.customSettings).toEqual({
+      disableAutoplay: false,
+      shortsRedirectToWatch: true,
+    });
+  });
 });
+
+function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}

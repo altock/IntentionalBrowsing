@@ -343,7 +343,7 @@ export function buildRedirectUrl(
       // Fall through to default redirect
     }
     // Fallback if we can't extract short ID
-    return buildRedirectUrl(originalUrl, '/feed/subscriptions', extensionId);
+    return buildRedirectUrl(originalUrl, '/feed/subscriptions', _extensionId);
   }
 
   // Relative redirect on same domain

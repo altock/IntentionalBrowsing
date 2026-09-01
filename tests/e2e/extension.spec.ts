@@ -297,4 +297,47 @@ test.describe('Intentional Browsing Extension', () => {
 
     await page.close();
   });
+
+  test('popup setting changes update an already-open soft-blocked page', async () => {
+    test.skip(!extensionId, 'Extension ID not available for popup test');
+
+    await context.route('https://www.youtube.com/**', async route => {
+      await route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><html><body>
+          <input aria-label="Search">
+          <ytd-rich-grid-renderer><div>Recommendation feed</div></ytd-rich-grid-renderer>
+        </body></html>`,
+      });
+    });
+
+    const youtubePage = await context.newPage();
+    const popupPage = await context.newPage();
+
+    try {
+      await youtubePage.goto('https://www.youtube.com/');
+      const feed = youtubePage.locator('ytd-rich-grid-renderer');
+      await expect(feed).toBeHidden({ timeout: 5000 });
+
+      await popupPage.goto(`chrome-extension://${extensionId}/ui/popup.html`);
+      const youtubeToggle = popupPage.locator(
+        '.platform[data-platform="youtube"] input[type="checkbox"]'
+      );
+      await expect(youtubeToggle).toBeChecked();
+
+      await popupPage.locator(
+        '.platform[data-platform="youtube"] .platform-toggle'
+      ).click();
+      await expect(feed).toBeVisible({ timeout: 5000 });
+
+      await popupPage.locator(
+        '.platform[data-platform="youtube"] .platform-toggle'
+      ).click();
+      await expect(feed).toBeHidden({ timeout: 5000 });
+    } finally {
+      await popupPage.close();
+      await youtubePage.close();
+      await context.unroute('https://www.youtube.com/**');
+    }
+  });
 });

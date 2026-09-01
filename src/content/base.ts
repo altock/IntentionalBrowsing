@@ -3,7 +3,8 @@
  */
 
 import { Router, getRouter } from './router.js';
-import type { BlockDecision, ExtensionMessage, ExtensionResponse, PlatformId, SelectorConfig } from '../shared/types.js';
+import type { BlockDecision, ExtensionMessage, ExtensionResponse, PlatformId, SelectorConfig, StorageSchema } from '../shared/types.js';
+import { havePlatformSettingsChanged } from '../shared/platform-settings.js';
 
 /**
  * Send a message to the background script
@@ -114,7 +115,24 @@ export abstract class PlatformContentScript {
   constructor(platformId: PlatformId) {
     this.platformId = platformId;
     this.router = getRouter();
+    chrome.storage.onChanged.addListener(this.handleStorageChange);
   }
+
+  private handleStorageChange = (
+    changes: Record<string, chrome.storage.StorageChange>,
+    areaName: string
+  ): void => {
+    const configChange = changes.config;
+    if (areaName !== 'local' || !configChange) {
+      return;
+    }
+
+    const previousConfig = configChange.oldValue as StorageSchema | undefined;
+    const nextConfig = configChange.newValue as StorageSchema | undefined;
+    if (havePlatformSettingsChanged(this.platformId, previousConfig, nextConfig)) {
+      window.location.reload();
+    }
+  };
 
   /**
    * Initialize the content script
@@ -164,6 +182,7 @@ export abstract class PlatformContentScript {
    */
   destroy(): void {
     this.router.destroy();
+    chrome.storage.onChanged.removeListener(this.handleStorageChange);
     if (this.observer) {
       this.observer.disconnect();
     }

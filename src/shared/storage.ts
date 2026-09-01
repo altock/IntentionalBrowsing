@@ -4,6 +4,7 @@ import { DEFAULT_STORAGE, SCHEMA_VERSION } from './config.js';
 declare const browser: typeof chrome | undefined;
 
 const STORAGE_KEY = 'config';
+let updateQueue: Promise<void> = Promise.resolve();
 
 // Use browser API (Firefox) if available, otherwise chrome (Chrome/Edge)
 function getStorageApi() {
@@ -36,7 +37,27 @@ export function migrateSchema(data: unknown): StorageSchema {
 
   for (const key of Object.keys(result.platforms) as PlatformId[]) {
     if (schema.platforms?.[key]) {
-      result.platforms[key] = { ...result.platforms[key], ...schema.platforms[key] };
+      const defaults = result.platforms[key];
+      const stored = schema.platforms[key];
+      result.platforms[key] = {
+        ...defaults,
+        ...stored,
+        hardBlocks: {
+          ...defaults.hardBlocks,
+          ...(stored.hardBlocks ?? {}),
+        },
+        softBlocks: {
+          ...defaults.softBlocks,
+          ...(stored.softBlocks ?? {}),
+        },
+        customSettings:
+          defaults.customSettings || stored.customSettings
+            ? {
+                ...(defaults.customSettings ?? {}),
+                ...(stored.customSettings ?? {}),
+              }
+            : undefined,
+      };
     }
   }
 
@@ -70,51 +91,84 @@ export const Storage = {
   },
 
   /**
+   * Read, update, and save configuration in invocation order.
+   */
+  async update(
+    updater: (config: StorageSchema) => StorageSchema | void
+  ): Promise<StorageSchema> {
+    let resolveResult: (config: StorageSchema) => void;
+    let rejectResult: (error: unknown) => void;
+    const result = new Promise<StorageSchema>((resolve, reject) => {
+      resolveResult = resolve;
+      rejectResult = reject;
+    });
+
+    updateQueue = updateQueue
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          const current = await this.load();
+          const updated = updater(current) ?? current;
+          await this.save(updated);
+          resolveResult(updated);
+        } catch (error) {
+          rejectResult(error);
+        }
+      });
+
+    return result;
+  },
+
+  /**
    * Update a specific platform's configuration
    */
   async updatePlatform(
     platformId: PlatformId,
     updates: Partial<PlatformConfig>
   ): Promise<StorageSchema> {
-    const config = await this.load();
-    const currentPlatform = config.platforms[platformId];
+    return this.update((config) => {
+      const currentPlatform = config.platforms[platformId];
 
-    config.platforms[platformId] = {
-      ...currentPlatform,
-      ...updates,
-      hardBlocks: {
-        ...currentPlatform.hardBlocks,
-        ...(updates.hardBlocks || {}),
-      },
-      softBlocks: {
-        ...currentPlatform.softBlocks,
-        ...(updates.softBlocks || {}),
-      },
-    };
+      config.platforms[platformId] = {
+        ...currentPlatform,
+        ...updates,
+        hardBlocks: {
+          ...currentPlatform.hardBlocks,
+          ...(updates.hardBlocks || {}),
+        },
+        softBlocks: {
+          ...currentPlatform.softBlocks,
+          ...(updates.softBlocks || {}),
+        },
+        customSettings: {
+          ...(currentPlatform.customSettings ?? {}),
+          ...(updates.customSettings ?? {}),
+        },
+      };
 
-    await this.save(config);
-    return config;
+      return config;
+    });
   },
 
   /**
    * Toggle global enabled state
    */
   async toggleGlobal(enabled: boolean): Promise<StorageSchema> {
-    const config = await this.load();
-    config.globalEnabled = enabled;
-    await this.save(config);
-    return config;
+    return this.update((config) => {
+      config.globalEnabled = enabled;
+      return config;
+    });
   },
 
   /**
    * Increment block count and update last block timestamp
    */
   async incrementBlockCount(): Promise<StorageSchema> {
-    const config = await this.load();
-    config.stats.blocksTotal += 1;
-    config.stats.lastBlock = Date.now();
-    await this.save(config);
-    return config;
+    return this.update((config) => {
+      config.stats.blocksTotal += 1;
+      config.stats.lastBlock = Date.now();
+      return config;
+    });
   },
 
   /**

@@ -5,8 +5,9 @@
  */
 
 import { Storage } from '../shared/storage.js';
+import { applyConfigUpdate } from '../shared/config-updates.js';
 import { getBlockDecision } from '../shared/rules.js';
-import type { ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
+import type { ConfigUpdate, ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
 
 /**
  * Rule IDs for declarativeNetRequest
@@ -70,6 +71,9 @@ const PLATFORM_BLOCK_PATTERNS: Record<PlatformId, string[]> = {
   reddit: [], // Reddit uses static rules only
 };
 
+let ruleSyncQueue: Promise<void> = Promise.resolve();
+let lastAppliedRuleFingerprint = '';
+
 /**
  * Initialize the extension
  */
@@ -78,7 +82,7 @@ async function init(): Promise<void> {
 
   // Load config and sync rule states
   const config = await Storage.load();
-  await syncRuleStates(config);
+  await queueRuleStateSync();
 
   console.log('[IntentionalBrowsing] Initialized with config:', config.globalEnabled ? 'enabled' : 'disabled');
 }
@@ -86,7 +90,40 @@ async function init(): Promise<void> {
 /**
  * Sync declarativeNetRequest rule states with config
  */
-async function syncRuleStates(config: StorageSchema): Promise<void> {
+function getRuleFingerprint(config: StorageSchema): string {
+  return JSON.stringify({
+    globalEnabled: config.globalEnabled,
+    platforms: Object.fromEntries(
+      (Object.keys(config.platforms) as PlatformId[]).map((platformId) => [
+        platformId,
+        {
+          enabled: config.platforms[platformId].enabled,
+          redirectTarget: config.platforms[platformId].redirectTarget,
+        },
+      ])
+    ),
+  });
+}
+
+function queueRuleStateSync(): Promise<void> {
+  const sync = ruleSyncQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const latestConfig = await Storage.load();
+      const fingerprint = getRuleFingerprint(latestConfig);
+      if (fingerprint === lastAppliedRuleFingerprint) {
+        return;
+      }
+
+      await applyRuleStates(latestConfig);
+      lastAppliedRuleFingerprint = fingerprint;
+    });
+
+  ruleSyncQueue = sync;
+  return sync;
+}
+
+async function applyRuleStates(config: StorageSchema): Promise<void> {
   const enableRulesetIds: string[] = [];
   const disableRulesetIds: string[] = [];
 
@@ -205,9 +242,18 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
 
     case 'SET_CONFIG': {
       const config = message.payload as StorageSchema;
-      await Storage.save(config);
-      await syncRuleStates(config);
-      return { success: true };
+      const savedConfig = await Storage.update(() => config);
+      await queueRuleStateSync();
+      return { success: true, data: savedConfig };
+    }
+
+    case 'UPDATE_CONFIG': {
+      const update = message.payload as ConfigUpdate;
+      const config = await Storage.update((currentConfig) =>
+        applyConfigUpdate(currentConfig, update)
+      );
+      await queueRuleStateSync();
+      return { success: true, data: config };
     }
 
     case 'CHECK_URL': {
@@ -243,8 +289,7 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
  */
 chrome.storage.onChanged.addListener(async (changes, areaName) => {
   if (areaName === 'local' && changes.config) {
-    const newConfig = changes.config.newValue as StorageSchema;
-    await syncRuleStates(newConfig);
+    await queueRuleStateSync();
   }
 });
 

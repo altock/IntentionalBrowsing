@@ -8,8 +8,9 @@
 declare const browser: typeof chrome | undefined;
 
 import { Storage } from '../shared/storage.js';
+import { applyConfigUpdate } from '../shared/config-updates.js';
 import { getBlockDecision, buildRedirectUrl } from '../shared/rules.js';
-import type { ExtensionMessage, ExtensionResponse, StorageSchema } from '../shared/types.js';
+import type { ConfigUpdate, ExtensionMessage, ExtensionResponse, StorageSchema } from '../shared/types.js';
 
 const api = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -95,9 +96,16 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
 
     case 'SET_CONFIG': {
       const config = message.payload as StorageSchema;
-      await Storage.save(config);
-      cachedConfig = config;
-      return { success: true };
+      cachedConfig = await Storage.update(() => config);
+      return { success: true, data: cachedConfig };
+    }
+
+    case 'UPDATE_CONFIG': {
+      const update = message.payload as ConfigUpdate;
+      cachedConfig = await Storage.update((currentConfig) =>
+        applyConfigUpdate(currentConfig, update)
+      );
+      return { success: true, data: cachedConfig };
     }
 
     case 'CHECK_URL': {

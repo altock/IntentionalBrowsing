@@ -2,8 +2,10 @@
  * Popup UI Script
  */
 
-import type { ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
+import type { ConfigUpdate, ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
 import { PLATFORM_REDIRECT_OPTIONS } from '../shared/config.js';
+import { applyConfigUpdate } from '../shared/config-updates.js';
+import { normalizeTwitterListPath } from '../shared/platform-settings.js';
 
 const PLATFORM_NAMES: Record<PlatformId, string> = {
   twitter: 'X / Twitter',
@@ -36,10 +38,15 @@ const PLATFORM_ORDER: PlatformId[] = [
 ];
 
 let currentConfig: StorageSchema | null = null;
+let updateRevision = 0;
 
 async function sendMessage<T>(message: ExtensionMessage): Promise<ExtensionResponse<T>> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response: ExtensionResponse<T>) => {
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
       resolve(response || { success: false, error: 'No response' });
     });
   });
@@ -54,9 +61,29 @@ async function loadConfig(): Promise<StorageSchema | null> {
   return null;
 }
 
-async function saveConfig(config: StorageSchema): Promise<void> {
-  await sendMessage({ type: 'SET_CONFIG', payload: config });
-  currentConfig = config;
+async function saveUpdate(update: ConfigUpdate): Promise<void> {
+  if (!currentConfig) return;
+
+  const revision = ++updateRevision;
+  currentConfig = applyConfigUpdate(currentConfig, update);
+  render(currentConfig);
+
+  const response = await sendMessage<StorageSchema>({ type: 'UPDATE_CONFIG', payload: update });
+  if (revision !== updateRevision) {
+    return;
+  }
+
+  if (response.success && response.data) {
+    currentConfig = response.data;
+    render(currentConfig);
+    return;
+  }
+
+  console.error('[IntentionalBrowsing] Failed to save config:', response.error || 'Unknown error');
+  const storedConfig = await loadConfig();
+  if (storedConfig && revision === updateRevision) {
+    render(storedConfig);
+  }
 }
 
 function createElementFromHTML(html: string): Element | null {
@@ -163,6 +190,29 @@ function render(config: StorageSchema): void {
       settingLabel.appendChild(labelSpan);
       settingLabel.appendChild(select);
       settingsDiv.appendChild(settingLabel);
+
+      if (platformId === 'twitter') {
+        const twitterListLabel = document.createElement('label');
+        twitterListLabel.className = 'setting-row setting-row-stacked';
+
+        const twitterListLabelSpan = document.createElement('span');
+        twitterListLabelSpan.className = 'setting-label';
+        twitterListLabelSpan.textContent = 'List path (optional):';
+
+        const twitterListInput = document.createElement('input');
+        twitterListInput.type = 'text';
+        twitterListInput.className = 'redirect-input';
+        twitterListInput.placeholder = '/i/lists/1234567890';
+        twitterListInput.dataset.platform = platformId;
+        twitterListInput.dataset.setting = 'twitter-list-path';
+        const currentListPath = (platformConfig.customSettings as { listRedirectPath?: string } | undefined)?.listRedirectPath ?? '';
+        twitterListInput.value = currentListPath;
+
+        twitterListLabel.appendChild(twitterListLabelSpan);
+        twitterListLabel.appendChild(twitterListInput);
+        settingsDiv.appendChild(twitterListLabel);
+      }
+
       platformDiv.appendChild(settingsDiv);
     }
 
@@ -171,38 +221,42 @@ function render(config: StorageSchema): void {
 }
 
 async function handleGlobalToggle(enabled: boolean): Promise<void> {
-  if (!currentConfig) return;
-  currentConfig.globalEnabled = enabled;
-  await saveConfig(currentConfig);
-  render(currentConfig);
+  await saveUpdate({ kind: 'global-enabled', enabled });
 }
 
 async function handlePlatformToggle(platformId: PlatformId, enabled: boolean): Promise<void> {
-  if (!currentConfig) return;
-  currentConfig.platforms[platformId].enabled = enabled;
-  await saveConfig(currentConfig);
-  render(currentConfig);
+  await saveUpdate({ kind: 'platform-enabled', platformId, enabled });
 }
 
 async function handleRedirectChange(platformId: PlatformId, redirectTarget: string): Promise<void> {
+  await saveUpdate({ kind: 'platform-redirect-target', platformId, redirectTarget });
+}
+
+async function handleTwitterListPathChange(listPathInput: string): Promise<void> {
   if (!currentConfig) return;
-  currentConfig.platforms[platformId].redirectTarget = redirectTarget;
-  await saveConfig(currentConfig);
+  const normalizedPath = normalizeTwitterListPath(listPathInput) ?? '';
+  await saveUpdate({
+    kind: 'platform-custom-settings',
+    platformId: 'twitter',
+    customSettings: { listRedirectPath: normalizedPath },
+  });
 }
 
 function setupEventListeners(): void {
   document.getElementById('global-enabled')?.addEventListener('change', (e) => {
     const target = e.target as HTMLInputElement;
-    handleGlobalToggle(target.checked);
+    void handleGlobalToggle(target.checked);
   });
 
   document.getElementById('platforms')?.addEventListener('change', (e) => {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
     if (target.dataset.platform) {
       if (target.tagName === 'INPUT' && target.type === 'checkbox') {
-        handlePlatformToggle(target.dataset.platform as PlatformId, (target as HTMLInputElement).checked);
+        void handlePlatformToggle(target.dataset.platform as PlatformId, (target as HTMLInputElement).checked);
+      } else if (target.tagName === 'INPUT' && target.dataset.setting === 'twitter-list-path') {
+        void handleTwitterListPathChange((target as HTMLInputElement).value);
       } else if (target.tagName === 'SELECT') {
-        handleRedirectChange(target.dataset.platform as PlatformId, target.value);
+        void handleRedirectChange(target.dataset.platform as PlatformId, target.value);
       }
     }
   });

@@ -12,6 +12,7 @@
 import { PlatformContentScript, hideAllElements, observeAndHide, sendMessage } from '../base.js';
 import { YOUTUBE_SELECTORS } from '../../shared/config.js';
 import type { SelectorConfig, StorageSchema, YouTubeCustomSettings } from '../../shared/types.js';
+import { shouldApplyYouTubeContentBlocking } from '../../shared/platform-settings.js';
 
 class YouTubeContentScript extends PlatformContentScript {
   private softBlockSelectors: SelectorConfig[] = [];
@@ -26,6 +27,11 @@ class YouTubeContentScript extends PlatformContentScript {
     // Load config to determine which soft blocks are enabled
     const response = await sendMessage<StorageSchema>({ type: 'GET_CONFIG' });
     const config = response.data;
+
+    if (!shouldApplyYouTubeContentBlocking(config)) {
+      console.log('[IntentionalBrowsing] YouTube content blocking is disabled');
+      return;
+    }
 
     if (config?.platforms.youtube.softBlocks) {
       const softBlocks = config.platforms.youtube.softBlocks;
