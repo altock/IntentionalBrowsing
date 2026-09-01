@@ -158,6 +158,41 @@ describe('Storage', () => {
       expect(saved.globalEnabled).toBe(false);
       expect(saved.platforms.youtube.enabled).toBe(false);
     });
+
+    it('does not let a delayed migration write overwrite a queued update', async () => {
+      const legacyConfig = deepClone(DEFAULT_STORAGE);
+      delete legacyConfig.platforms.twitter.customSettings;
+      mockStorage['config'] = legacyConfig;
+
+      let finishMigrationWrite: (() => void) | undefined;
+      mockChromeStorage.local.set.mockImplementationOnce((items) => new Promise<void>((resolve) => {
+        finishMigrationWrite = () => {
+          Object.assign(mockStorage, items);
+          resolve();
+        };
+      }));
+
+      const migrationLoad = Storage.load();
+      await vi.waitFor(() => {
+        expect(finishMigrationWrite).toBeTypeOf('function');
+      });
+
+      const update = Storage.update((config) => {
+        config.globalEnabled = false;
+        return config;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockChromeStorage.local.set).toHaveBeenCalledTimes(1);
+
+      finishMigrationWrite?.();
+
+      await Promise.all([migrationLoad, update]);
+
+      const saved = mockStorage['config'] as StorageSchema;
+      expect(saved.globalEnabled).toBe(false);
+      expect(saved.platforms.twitter.customSettings).toEqual({ listRedirectPath: '' });
+    });
   });
 
   describe('incrementBlockCount', () => {

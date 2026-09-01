@@ -228,13 +228,19 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
   const isNavigationRedirect = redirectTarget === 'blocked' || redirectTarget.startsWith('/');
 
   if (!isNavigationRedirect) {
-    // Non-navigation redirects (following-tab, feed-block, etc.) are handled by content scripts
-    // Don't block at navigation level - let the page load
-    return {
-      shouldBlock: false,
-      mode: 'allow',
-      reason: `Redirect '${redirectTarget}' handled by content script`,
-    };
+    const isContentScriptRedirect =
+      baseDecision.mode === 'soft' ||
+      (platformId === 'twitter' && redirectTarget === 'following-tab');
+
+    if (isContentScriptRedirect) {
+      return {
+        shouldBlock: false,
+        mode: 'allow',
+        reason: `Redirect '${redirectTarget}' handled by content script`,
+      };
+    }
+
+    return baseDecision;
   }
 
   // Apply user's redirect target for navigation-level redirects

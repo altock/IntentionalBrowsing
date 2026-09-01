@@ -35,6 +35,9 @@
     "scripts": ["background.js"],
     "persistent": true
   },
+  "web_accessible_resources": [
+    "ui/blocked.html"
+  ],
   "browser_action": {
     "default_popup": "ui/popup.html",
     "default_title": "Intentional Browsing"

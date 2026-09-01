@@ -15,6 +15,33 @@ function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
+async function readMigratedConfig(): Promise<{ config: StorageSchema; needsMigration: boolean }> {
+  const result = await getStorageApi().get(STORAGE_KEY) || {};
+  const config = migrateSchema(result[STORAGE_KEY]);
+
+  return {
+    config,
+    needsMigration: JSON.stringify(result[STORAGE_KEY]) !== JSON.stringify(config),
+  };
+}
+
+async function saveNow(config: StorageSchema): Promise<void> {
+  await getStorageApi().set({ [STORAGE_KEY]: config });
+}
+
+function enqueueConfigOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = updateQueue
+    .catch(() => undefined)
+    .then(operation);
+
+  updateQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+
+  return result;
+}
+
 /**
  * Ensure stored config has all current schema fields
  */
@@ -72,22 +99,21 @@ export const Storage = {
    * Load configuration from storage, applying migrations and defaults
    */
   async load(): Promise<StorageSchema> {
-    const result = await getStorageApi().get(STORAGE_KEY) || {};
-    const migrated = migrateSchema(result[STORAGE_KEY]);
+    return enqueueConfigOperation(async () => {
+      const { config, needsMigration } = await readMigratedConfig();
+      if (needsMigration) {
+        await saveNow(config);
+      }
 
-    // Save if migrations occurred
-    if (JSON.stringify(result[STORAGE_KEY]) !== JSON.stringify(migrated)) {
-      await this.save(migrated);
-    }
-
-    return migrated;
+      return config;
+    });
   },
 
   /**
    * Save configuration to storage
    */
   async save(config: StorageSchema): Promise<void> {
-    await getStorageApi().set({ [STORAGE_KEY]: config });
+    await enqueueConfigOperation(() => saveNow(config));
   },
 
   /**
@@ -96,27 +122,12 @@ export const Storage = {
   async update(
     updater: (config: StorageSchema) => StorageSchema | void
   ): Promise<StorageSchema> {
-    let resolveResult: (config: StorageSchema) => void;
-    let rejectResult: (error: unknown) => void;
-    const result = new Promise<StorageSchema>((resolve, reject) => {
-      resolveResult = resolve;
-      rejectResult = reject;
+    return enqueueConfigOperation(async () => {
+      const { config } = await readMigratedConfig();
+      const updated = updater(config) ?? config;
+      await saveNow(updated);
+      return updated;
     });
-
-    updateQueue = updateQueue
-      .catch(() => undefined)
-      .then(async () => {
-        try {
-          const current = await this.load();
-          const updated = updater(current) ?? current;
-          await this.save(updated);
-          resolveResult(updated);
-        } catch (error) {
-          rejectResult(error);
-        }
-      });
-
-    return result;
   },
 
   /**

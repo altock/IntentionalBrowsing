@@ -1,6 +1,6 @@
-import { test as base, expect, type BrowserContext, type Page, type Browser } from '@playwright/test';
+import { test as base, expect, type BrowserContext } from '@playwright/test';
 import { firefox } from 'playwright';
-import { withExtension } from 'playwright-webextext';
+import { connectWithMaxRetries, findFreeTcpPort } from 'playwright-webextext/dist/firefox_remote.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -24,27 +24,38 @@ const extensionPath = path.resolve(__dirname, '../../dist/firefox');
 const popupHtmlPath = path.resolve(extensionPath, 'ui/popup.html');
 
 // Test state shared across tests
-let firefoxBrowser: Browser | null = null;
+let firefoxContext: BrowserContext | null = null;
 
 // Custom test fixture that manages the Firefox browser with extension
 const test = base.extend<{
-  firefoxWithExtension: Browser;
+  firefoxWithExtension: BrowserContext;
 }>({
   firefoxWithExtension: [
     async ({}, use) => {
-      // Reuse browser if already created
-      if (!firefoxBrowser) {
+      // Use a persistent Firefox context. Contexts created by browser.newContext()
+      // are private, and temporary extensions cannot expose their internal pages there.
+      if (!firefoxContext) {
         console.log('Launching Firefox with extension...');
-        const firefoxWithExtension = withExtension(firefox, extensionPath);
-        firefoxBrowser = await firefoxWithExtension.launch({
+        const debuggingPort = await findFreeTcpPort();
+        firefoxContext = await firefox.launchPersistentContext('', {
           headless: false,
+          args: ['--start-debugger-server', String(debuggingPort)],
+          firefoxUserPrefs: {
+            'devtools.debugger.remote-enabled': true,
+            'devtools.debugger.prompt-connection': false,
+            'extensions.manifestV3.enabled': true,
+          },
         });
+
+        const remoteFirefox = await connectWithMaxRetries({ port: debuggingPort });
+        await remoteFirefox.installTemporaryAddon(extensionPath);
+        remoteFirefox.disconnect();
 
         // Wait for extension to initialize
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
-      await use(firefoxBrowser);
+      await use(firefoxContext);
     },
     { scope: 'worker' },
   ],
@@ -52,19 +63,15 @@ const test = base.extend<{
 
 test.describe('Intentional Browsing Firefox Extension', () => {
   test.afterAll(async () => {
-    if (firefoxBrowser) {
-      await firefoxBrowser.close();
-      firefoxBrowser = null;
+    if (firefoxContext) {
+      await firefoxContext.close();
+      firefoxContext = null;
     }
   });
 
   test('extension loads and browser stays connected', async ({ firefoxWithExtension }) => {
-    // Verify the browser is connected (extension didn't crash it)
-    expect(firefoxWithExtension.isConnected()).toBe(true);
-
-    // Create a context and page
-    const context = await firefoxWithExtension.newContext();
-    const page = await context.newPage();
+    // Verify the persistent context remains usable after the add-on loads.
+    const page = await firefoxWithExtension.newPage();
 
     // Navigate to a simple page to verify browser works
     await page.goto('https://example.com', { timeout: 30000 });
@@ -72,57 +79,26 @@ test.describe('Intentional Browsing Firefox Extension', () => {
     expect(title).toContain('Example');
 
     await page.close();
-    await context.close();
   });
 
-  test('extension redirects twitter.com to /messages', async ({ firefoxWithExtension }) => {
-    // NOTE: This test is currently failing because the Firefox extension
-    // is NOT performing the redirect. This indicates a bug in the MV2 extension.
-    // The extension loads but the webRequest/webNavigation blocking is not working.
-    //
-    // Possible causes:
-    // 1. playwright-webextext may not grant all required permissions
-    // 2. The MV2 background script may have initialization issues
-    // 3. Firefox's permission model for temporary extensions may be different
-    //
-    // TODO: Investigate and fix the Firefox extension redirect functionality
+  test('extension redirects YouTube Trending to the configured subscriptions feed', async ({ firefoxWithExtension }) => {
+    const page = await firefoxWithExtension.newPage();
 
-    const context = await firefoxWithExtension.newContext();
-    const page = await context.newPage();
+    // This uses an external redirect because Playwright's Firefox driver cannot
+    // navigate a test page to a moz-extension:// URL.
+    console.log('Navigating to YouTube Trending...');
+    void page.goto('https://www.youtube.com/feed/trending', { timeout: 30000, waitUntil: 'commit' }).catch((error) => {
+      console.log('Navigation was interrupted by a potential redirect:', error);
+    });
 
-    // Navigate to twitter.com - our extension should redirect to /messages
-    console.log('Navigating to twitter.com...');
-    try {
-      await page.goto('https://twitter.com/', { timeout: 30000, waitUntil: 'domcontentloaded' });
-    } catch (e) {
-      // Navigation might fail due to redirect, that's okay
-      console.log('Navigation completed with potential redirect');
-    }
-
-    // Wait for redirect to complete
-    await page.waitForTimeout(5000);
+    await page.waitForURL('**/feed/subscriptions', { timeout: 10000 });
 
     const currentUrl = page.url();
     console.log(`Final URL: ${currentUrl}`);
 
-    // The extension should redirect to /messages
-    // When not logged in, Twitter may further redirect to login with redirect_after_login parameter
-    const isRedirected = currentUrl.includes('/messages') ||
-                         currentUrl.includes('redirect_after_login=%2Fmessages') ||
-                         currentUrl.includes('x.com/messages');
-
-    if (!isRedirected) {
-      console.log('WARNING: Extension redirect is NOT working in Firefox!');
-      console.log('This indicates a potential bug in the MV2/Firefox extension.');
-      console.log('Expected URL to contain /messages, but got:', currentUrl);
-      // Mark test as skipped with informative message rather than failing
-      test.skip(true, 'Firefox extension redirect not working - known issue');
-    }
-
-    expect(isRedirected).toBe(true);
+    expect(currentUrl).toContain('/feed/subscriptions');
 
     await page.close();
-    await context.close();
   });
 
   test('popup HTML renders correctly when loaded directly', async ({ firefoxWithExtension }) => {
@@ -130,8 +106,7 @@ test.describe('Intentional Browsing Firefox Extension', () => {
     // This tests the HTML/CSS rendering but NOT the JavaScript functionality
     // (since chrome.* APIs aren't available outside extension context)
 
-    const context = await firefoxWithExtension.newContext();
-    const page = await context.newPage();
+    const page = await firefoxWithExtension.newPage();
 
     // Load the popup HTML directly
     const fileUrl = `file://${popupHtmlPath}`;
@@ -166,12 +141,10 @@ test.describe('Intentional Browsing Firefox Extension', () => {
     console.log('Popup HTML structure verified successfully');
 
     await page.close();
-    await context.close();
   });
 
   test('popup HTML has all required elements', async ({ firefoxWithExtension }) => {
-    const context = await firefoxWithExtension.newContext();
-    const page = await context.newPage();
+    const page = await firefoxWithExtension.newPage();
 
     await page.goto(`file://${popupHtmlPath}`);
 
@@ -192,12 +165,10 @@ test.describe('Intentional Browsing Firefox Extension', () => {
     }
 
     await page.close();
-    await context.close();
   });
 
   test('popup CSS is linked correctly', async ({ firefoxWithExtension }) => {
-    const context = await firefoxWithExtension.newContext();
-    const page = await context.newPage();
+    const page = await firefoxWithExtension.newPage();
 
     await page.goto(`file://${popupHtmlPath}`);
 
@@ -206,12 +177,10 @@ test.describe('Intentional Browsing Firefox Extension', () => {
     await expect(cssLink).toHaveCount(1);
 
     await page.close();
-    await context.close();
   });
 
   test('popup script is linked correctly', async ({ firefoxWithExtension }) => {
-    const context = await firefoxWithExtension.newContext();
-    const page = await context.newPage();
+    const page = await firefoxWithExtension.newPage();
 
     await page.goto(`file://${popupHtmlPath}`);
 
@@ -220,6 +189,5 @@ test.describe('Intentional Browsing Firefox Extension', () => {
     await expect(script).toHaveCount(1);
 
     await page.close();
-    await context.close();
   });
 });

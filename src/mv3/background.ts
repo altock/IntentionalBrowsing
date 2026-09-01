@@ -6,6 +6,7 @@
 
 import { Storage } from '../shared/storage.js';
 import { applyConfigUpdate } from '../shared/config-updates.js';
+import { createQueuedConfigSync } from '../shared/rule-sync.js';
 import { getBlockDecision } from '../shared/rules.js';
 import type { ConfigUpdate, ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
 
@@ -71,9 +72,6 @@ const PLATFORM_BLOCK_PATTERNS: Record<PlatformId, string[]> = {
   reddit: [], // Reddit uses static rules only
 };
 
-let ruleSyncQueue: Promise<void> = Promise.resolve();
-let lastAppliedRuleFingerprint = '';
-
 /**
  * Initialize the extension
  */
@@ -85,6 +83,12 @@ async function init(): Promise<void> {
   await queueRuleStateSync();
 
   console.log('[IntentionalBrowsing] Initialized with config:', config.globalEnabled ? 'enabled' : 'disabled');
+}
+
+function initializeWithLogging(): void {
+  void init().catch((error) => {
+    console.error('[IntentionalBrowsing] Initialization failed:', error);
+  });
 }
 
 /**
@@ -105,23 +109,11 @@ function getRuleFingerprint(config: StorageSchema): string {
   });
 }
 
-function queueRuleStateSync(): Promise<void> {
-  const sync = ruleSyncQueue
-    .catch(() => undefined)
-    .then(async () => {
-      const latestConfig = await Storage.load();
-      const fingerprint = getRuleFingerprint(latestConfig);
-      if (fingerprint === lastAppliedRuleFingerprint) {
-        return;
-      }
-
-      await applyRuleStates(latestConfig);
-      lastAppliedRuleFingerprint = fingerprint;
-    });
-
-  ruleSyncQueue = sync;
-  return sync;
-}
+const queueRuleStateSync = createQueuedConfigSync(
+  () => Storage.load(),
+  getRuleFingerprint,
+  applyRuleStates
+);
 
 async function applyRuleStates(config: StorageSchema): Promise<void> {
   const enableRulesetIds: string[] = [];
@@ -146,6 +138,7 @@ async function applyRuleStates(config: StorageSchema): Promise<void> {
     console.log('[IntentionalBrowsing] Rule states synced');
   } catch (error) {
     console.error('[IntentionalBrowsing] Failed to sync rule states:', error);
+    throw error;
   }
 
   // Sync dynamic rules for all platforms with configurable redirect targets
@@ -213,6 +206,7 @@ async function syncDynamicBlockRules(config: StorageSchema): Promise<void> {
     console.log(`[IntentionalBrowsing] Dynamic rules synced: ${allRulesToAdd.length} active`);
   } catch (error) {
     console.error('[IntentionalBrowsing] Failed to sync dynamic rules:', error);
+    throw error;
   }
 }
 
@@ -287,17 +281,19 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
 /**
  * Listen for storage changes to sync rule states
  */
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
+chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.config) {
-    await queueRuleStateSync();
+    void queueRuleStateSync().catch((error) => {
+      console.error('[IntentionalBrowsing] Failed to resync rules after storage change:', error);
+    });
   }
 });
 
 // Initialize on install/update
-chrome.runtime.onInstalled.addListener(init);
+chrome.runtime.onInstalled.addListener(initializeWithLogging);
 
 // Initialize on startup
-chrome.runtime.onStartup.addListener(init);
+chrome.runtime.onStartup.addListener(initializeWithLogging);
 
 // Also run init immediately for when extension is loaded
-init();
+initializeWithLogging();
