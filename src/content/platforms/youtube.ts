@@ -22,6 +22,12 @@ class YouTubeContentScript extends PlatformContentScript {
   private disableAutoplay = true;
   private shortsRedirectToWatch = true;
   private shouldSoftBlockHomepage = false;
+  private homepageObserver: MutationObserver | null = null;
+  private homepageFrame: number | null = null;
+
+  private handlePageNavigation = (): void => {
+    this.syncHomepageObserver();
+  };
 
   constructor() {
     super('youtube');
@@ -95,28 +101,14 @@ class YouTubeContentScript extends PlatformContentScript {
   }
 
   protected setupObserver(): void {
+    this.router.onLocationChange(this.handlePageNavigation);
+    document.addEventListener('yt-navigate-finish', this.handlePageNavigation);
     const waitForBody = () => {
       if (this.softBlockSelectors.length > 0) {
         this.observer = observeAndHide(this.softBlockSelectors, document.body);
       }
 
-      // Also observe for homepage with debouncing
-      if (this.shouldSoftBlockHomepage && this.isHomepage()) {
-        let scheduled = false;
-        const homepageObserver = new MutationObserver(() => {
-          if (!scheduled) {
-            scheduled = true;
-            requestAnimationFrame(() => {
-              scheduled = false;
-              this.softBlockHomepage();
-            });
-          }
-        });
-        homepageObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-        });
-      }
+      this.syncHomepageObserver();
     };
 
     if (document.body) {
@@ -124,6 +116,38 @@ class YouTubeContentScript extends PlatformContentScript {
     } else {
       document.addEventListener('DOMContentLoaded', waitForBody);
     }
+  }
+
+  /** Observe late homepage content only while the homepage is active. */
+  private syncHomepageObserver(): void {
+    if (!this.shouldSoftBlockHomepage || !this.isHomepage()) {
+      this.homepageObserver?.disconnect();
+      this.homepageObserver = null;
+      if (this.homepageFrame !== null) cancelAnimationFrame(this.homepageFrame);
+      this.homepageFrame = null;
+      document.getElementById('intentional-browsing-message')?.remove();
+      return;
+    }
+    if (!document.body) return;
+    if (!this.homepageObserver) {
+      this.homepageObserver = new MutationObserver(() => {
+        if (this.homepageFrame !== null) return;
+        this.homepageFrame = requestAnimationFrame(() => {
+          this.homepageFrame = null;
+          if (this.shouldSoftBlockHomepage && this.isHomepage()) this.softBlockHomepage();
+        });
+      });
+      this.homepageObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    this.softBlockHomepage();
+  }
+
+  override destroy(): void {
+    this.homepageObserver?.disconnect();
+    if (this.homepageFrame !== null) cancelAnimationFrame(this.homepageFrame);
+    document.removeEventListener('yt-navigate-finish', this.handlePageNavigation);
+    this.router.removeListener(this.handlePageNavigation);
+    super.destroy();
   }
 
   /**

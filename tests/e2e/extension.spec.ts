@@ -343,4 +343,90 @@ test.describe('Intentional Browsing Extension', () => {
       await context.unroute('https://www.youtube.com/**');
     }
   });
+  test('YouTube navigation and delayed rule synchronization preserve blocking', async () => {
+    expect(extensionId).toBeTruthy();
+    const worker = context.serviceWorkers()[0];
+    const popup = await context.newPage();
+    const page = await context.newPage();
+    await context.route('https://www.youtube.com/**', route => route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><html><body><main></main><aside id="related">Recommendations</aside></body></html>',
+    }));
+    await popup.goto(`chrome-extension://${extensionId}/ui/popup.html`);
+    const originalConfig = await popup.evaluate(async () => {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+      return response.data;
+    });
+    try {
+      await page.goto('https://www.youtube.com/watch?v=initial');
+      // Hidden watch-page recommendations confirm that content-script initialization finished.
+      await expect(page.locator('#related')).toBeHidden();
+      for (let visit = 0; visit < 2; visit++) {
+        await page.evaluate(() => {
+          history.pushState({}, '', '/');
+          document.dispatchEvent(new Event('yt-navigate-finish'));
+        });
+        await page.evaluate(() => {
+          document.querySelector('main')!.innerHTML = '<ytd-rich-grid-renderer>Home feed</ytd-rich-grid-renderer>';
+        });
+        await expect(page.locator('ytd-rich-grid-renderer')).toBeHidden();
+        await page.evaluate(() => {
+          history.pushState({}, '', '/watch?v=next');
+          document.dispatchEvent(new Event('yt-navigate-finish'));
+          document.querySelector('main')!.innerHTML = '<ytd-rich-grid-renderer>Watch grid</ytd-rich-grid-renderer>';
+        });
+        // Cross two animation frames to let any stale observer callback run.
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        await expect(page.locator('ytd-rich-grid-renderer')).toBeVisible();
+      }
+      await popup.evaluate(async () => {
+        await chrome.runtime.sendMessage({ type: 'UPDATE_CONFIG', payload: {
+          kind: 'platform-enabled', platformId: 'youtube', enabled: false,
+        } });
+        await chrome.runtime.sendMessage({ type: 'UPDATE_CONFIG', payload: {
+          kind: 'platform-redirect-target', platformId: 'youtube', redirectTarget: 'blocked',
+        } });
+      });
+      await popup.reload();
+      await page.goto('https://www.youtube.com/');
+      const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+      await worker.evaluate(() => {
+        const state = globalThis as any;
+        state.originalUpdateRules = chrome.declarativeNetRequest.updateDynamicRules.bind(chrome.declarativeNetRequest);
+        chrome.declarativeNetRequest.updateDynamicRules = async options => {
+          await new Promise(resolve => { state.releaseRules = resolve; });
+          return state.originalUpdateRules(options);
+        };
+      });
+      await popup.locator('.platform[data-platform="youtube"] .platform-toggle').click();
+      await expect.poll(() => worker.evaluate(() => typeof (globalThis as any).releaseRules)).toBe('function');
+      // Give the content script time to receive storage.onChanged while rule application is held.
+      await page.waitForTimeout(200);
+      expect(page.url()).toBe('https://www.youtube.com/');
+      expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
+      await worker.evaluate(() => {
+        const state = globalThis as any;
+        chrome.declarativeNetRequest.updateDynamicRules = state.originalUpdateRules;
+        state.releaseRules();
+        delete state.releaseRules;
+      });
+      await expect(page).toHaveURL(`chrome-extension://${extensionId}/ui/blocked.html`);
+    } finally {
+      await worker.evaluate(() => {
+        const state = globalThis as any;
+        if (state.originalUpdateRules) chrome.declarativeNetRequest.updateDynamicRules = state.originalUpdateRules;
+        state.releaseRules?.();
+        delete state.originalUpdateRules;
+        delete state.releaseRules;
+      });
+      await page.close();
+      await popup.evaluate(async config => {
+        const response = await chrome.runtime.sendMessage({ type: 'SET_CONFIG', payload: config });
+        if (!response.success) throw new Error(response.error);
+      }, originalConfig);
+      await popup.close();
+      await context.unroute('https://www.youtube.com/**');
+    }
+  });
+
 });

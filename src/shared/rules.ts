@@ -155,6 +155,23 @@ export function checkUrl(url: string): BlockDecision {
   };
 }
 
+/** Validate an alternative destination and reject blocked feeds to prevent loops. */
+export function normalizeAlternativeUrl(input: unknown): string | null {
+  if (typeof input !== 'string' || !input.trim()) return null;
+  try {
+    const url = new URL(input.trim());
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return null;
+    const normalized = new URL(url.href);
+    normalized.pathname = normalized.pathname.toLowerCase();
+    if (checkUrl(normalized.href).shouldBlock) return null;
+    // Chrome's built-in Reddit rule also blocks nested /home routes.
+    if (getPlatformFromUrl(normalized.href) === 'reddit' && normalized.pathname.startsWith('/home/')) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get the block decision considering config, pause state, and platform settings
  */
@@ -223,6 +240,14 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
     }
   }
 
+  if (platformConfig.redirectTarget === 'custom') {
+    return {
+      ...baseDecision,
+      mode: 'hard',
+      redirectUrl: normalizeAlternativeUrl(platformConfig.customSettings?.alternativeUrl) ?? 'blocked',
+    };
+  }
+
   // Check if user's redirect target is a navigation-level redirect
   const redirectTarget = platformConfig.redirectTarget;
   const isNavigationRedirect = redirectTarget === 'blocked' || redirectTarget.startsWith('/');
@@ -246,6 +271,7 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
   // Apply user's redirect target for navigation-level redirects
   return {
     ...baseDecision,
+    mode: 'hard',
     redirectUrl: redirectTarget,
   };
 }
@@ -351,6 +377,9 @@ export function buildRedirectUrl(
     // Fallback if we can't extract short ID
     return buildRedirectUrl(originalUrl, '/feed/subscriptions', _extensionId);
   }
+
+  const alternativeUrl = normalizeAlternativeUrl(redirectTarget);
+  if (alternativeUrl) return alternativeUrl;
 
   // Relative redirect on same domain
   try {

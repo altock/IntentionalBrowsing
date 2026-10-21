@@ -146,6 +146,7 @@ export type MessageType =
   | 'GET_CONFIG'
   | 'SET_CONFIG'
   | 'UPDATE_CONFIG'
+  | 'SYNC_CONFIG'
   | 'CHECK_URL'
   | 'NAVIGATE'
   | 'GET_STATS'

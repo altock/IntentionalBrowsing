@@ -12,6 +12,10 @@ import { havePlatformSettingsChanged } from '../shared/platform-settings.js';
 export async function sendMessage<T>(message: ExtensionMessage): Promise<ExtensionResponse<T>> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response: ExtensionResponse<T>) => {
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
       resolve(response || { success: false, error: 'No response' });
     });
   });
@@ -111,6 +115,8 @@ export abstract class PlatformContentScript {
   protected router: Router;
   protected observer: MutationObserver | null = null;
   protected platformId: PlatformId;
+  private settingsRevision = 0;
+  private destroyed = false;
 
   constructor(platformId: PlatformId) {
     this.platformId = platformId;
@@ -130,7 +136,15 @@ export abstract class PlatformContentScript {
     const previousConfig = configChange.oldValue as StorageSchema | undefined;
     const nextConfig = configChange.newValue as StorageSchema | undefined;
     if (havePlatformSettingsChanged(this.platformId, previousConfig, nextConfig)) {
-      window.location.reload();
+      const revision = ++this.settingsRevision;
+      void sendMessage({ type: 'SYNC_CONFIG' }).then((response) => {
+        if (this.destroyed || revision !== this.settingsRevision) return;
+        if (response.success) {
+          window.location.reload();
+        } else {
+          console.error('[IntentionalBrowsing] Settings synchronization failed:', response.error);
+        }
+      }).catch(console.error);
     }
   };
 
@@ -146,6 +160,11 @@ export abstract class PlatformContentScript {
     // Check current URL
     const decision = await checkCurrentUrl();
 
+    if (decision.shouldBlock && /^https?:\/\//.test(decision.redirectUrl ?? '')) {
+      this.router.redirect(decision.redirectUrl!);
+      return;
+    }
+
     if (decision.shouldBlock) {
       if (decision.mode === 'soft') {
         // Apply soft blocks
@@ -158,6 +177,10 @@ export abstract class PlatformContentScript {
     // (hard blocks handled by background via webNavigation API)
     this.router.onLocationChange(async () => {
       const newDecision = await checkCurrentUrl();
+      if (newDecision.shouldBlock && /^https?:\/\//.test(newDecision.redirectUrl ?? '')) {
+        this.router.redirect(newDecision.redirectUrl!);
+        return;
+      }
       if (newDecision.shouldBlock && newDecision.mode === 'soft') {
         this.applySoftBlocks();
       }
@@ -181,6 +204,7 @@ export abstract class PlatformContentScript {
    * Clean up
    */
   destroy(): void {
+    this.destroyed = true;
     this.router.destroy();
     chrome.storage.onChanged.removeListener(this.handleStorageChange);
     if (this.observer) {

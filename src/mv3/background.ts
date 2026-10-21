@@ -4,6 +4,7 @@
  * Manages declarativeNetRequest rules and handles messages from popup/content scripts.
  */
 
+import { getAlternativeRules } from './alternative-rules.js';
 import { Storage } from '../shared/storage.js';
 import { applyConfigUpdate } from '../shared/config-updates.js';
 import { createQueuedConfigSync } from '../shared/rule-sync.js';
@@ -103,6 +104,7 @@ function getRuleFingerprint(config: StorageSchema): string {
         {
           enabled: config.platforms[platformId].enabled,
           redirectTarget: config.platforms[platformId].redirectTarget,
+          alternativeUrl: config.platforms[platformId].customSettings?.alternativeUrl,
         },
       ])
     ),
@@ -150,8 +152,9 @@ async function applyRuleStates(config: StorageSchema): Promise<void> {
  * Uses dynamic rules because redirect destinations are user-configurable
  */
 async function syncDynamicBlockRules(config: StorageSchema): Promise<void> {
-  const allRulesToAdd: chrome.declarativeNetRequest.Rule[] = [];
-  const allRuleIdsToRemove: number[] = [];
+  const alternatives = getAlternativeRules(config);
+  const allRulesToAdd = alternatives.addRules;
+  const allRuleIdsToRemove = alternatives.removeRuleIds;
 
   for (const platformId of Object.keys(PLATFORM_BLOCK_PATTERNS) as PlatformId[]) {
     const patterns = PLATFORM_BLOCK_PATTERNS[platformId];
@@ -229,6 +232,11 @@ chrome.runtime.onMessage.addListener(
 
 async function handleMessage(message: ExtensionMessage): Promise<ExtensionResponse> {
   switch (message.type) {
+    case 'SYNC_CONFIG': {
+      await queueRuleStateSync();
+      return { success: true };
+    }
+
     case 'GET_CONFIG': {
       const config = await Storage.load();
       return { success: true, data: config };

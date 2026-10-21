@@ -5,6 +5,7 @@
 import type { ConfigUpdate, ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
 import { PLATFORM_REDIRECT_OPTIONS } from '../shared/config.js';
 import { applyConfigUpdate } from '../shared/config-updates.js';
+import { normalizeAlternativeUrl } from '../shared/rules.js';
 import { normalizeTwitterListPath } from '../shared/platform-settings.js';
 
 const PLATFORM_NAMES: Record<PlatformId, string> = {
@@ -74,8 +75,9 @@ async function saveUpdate(update: ConfigUpdate): Promise<void> {
   }
 
   if (response.success && response.data) {
+    const changed = JSON.stringify(currentConfig) !== JSON.stringify(response.data);
     currentConfig = response.data;
-    render(currentConfig);
+    if (changed) render(currentConfig);
     return;
   }
 
@@ -110,7 +112,7 @@ function render(config: StorageSchema): void {
 
   PLATFORM_ORDER.forEach((platformId) => {
     const platformConfig = config.platforms[platformId];
-    const redirectOptions = PLATFORM_REDIRECT_OPTIONS[platformId];
+    const redirectOptions = [...PLATFORM_REDIRECT_OPTIONS[platformId], { value: 'custom', label: 'Alternative page' }];
     const hasSettings = redirectOptions.length > 1;
 
     // Create platform container
@@ -190,6 +192,47 @@ function render(config: StorageSchema): void {
       settingLabel.appendChild(labelSpan);
       settingLabel.appendChild(select);
       settingsDiv.appendChild(settingLabel);
+
+      if (platformConfig.redirectTarget === 'custom') {
+        const form = document.createElement('form');
+        form.className = 'alternative-form setting-row-stacked';
+        form.dataset.platform = platformId;
+        const label = document.createElement('label');
+        label.className = 'setting-row setting-row-stacked';
+        const caption = document.createElement('span');
+        caption.className = 'setting-label';
+        caption.textContent = 'Go here when blocked:';
+        const input = document.createElement('input');
+        input.type = 'url';
+        input.required = true;
+        input.className = 'redirect-input';
+        input.name = 'alternativeUrl';
+        input.placeholder = 'https://example.com';
+        input.value = String(platformConfig.customSettings?.alternativeUrl ?? '');
+        const help = document.createElement('span');
+        help.className = 'setting-label';
+        help.id = `alternative-help-${platformId}`;
+        help.textContent = input.value ? 'Saved. Blocked visits go here automatically.' : 'Enter a web address and save. Until then, the block page is shown.';
+        help.setAttribute('aria-live', 'polite');
+        input.setAttribute('aria-describedby', help.id);
+        label.append(caption, input);
+        const save = document.createElement('button');
+        save.type = 'submit';
+        save.textContent = 'Save page';
+        form.append(label, help, save);
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const url = normalizeAlternativeUrl(input.value);
+          if (!url) {
+            input.setCustomValidity('Enter an http or https address that is not a blocked feed.');
+            input.reportValidity();
+            return;
+          }
+          void saveUpdate({ kind: 'platform-custom-settings', platformId, customSettings: { alternativeUrl: url } });
+        });
+        input.addEventListener('input', () => input.setCustomValidity(''));
+        settingsDiv.appendChild(form);
+      }
 
       if (platformId === 'twitter') {
         const twitterListLabel = document.createElement('label');

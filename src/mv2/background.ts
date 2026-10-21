@@ -145,6 +145,11 @@ api.runtime.onMessage.addListener(
 
 async function handleMessage(message: ExtensionMessage): Promise<ExtensionResponse> {
   switch (message.type) {
+    case 'SYNC_CONFIG': {
+      cachedConfig = await Storage.load();
+      return { success: true };
+    }
+
     case 'GET_CONFIG': {
       const config = await Storage.load();
       cachedConfig = config;

@@ -221,3 +221,22 @@ body {
 .popup.disabled .platforms {
   pointer-events: none;
 }
+
+.alternative-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.alternative-form label {
+  width: 100%;
+  gap: 6px;
+}
+
+.alternative-form button {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
