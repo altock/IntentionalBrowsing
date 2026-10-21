@@ -52,11 +52,31 @@ export interface PlatformConfig {
 }
 
 /**
+ * One atomic configuration change requested by the popup.
+ */
+export type ConfigUpdate =
+  | { kind: 'global-enabled'; enabled: boolean }
+  | { kind: 'platform-enabled'; platformId: PlatformId; enabled: boolean }
+  | { kind: 'platform-redirect-target'; platformId: PlatformId; redirectTarget: string }
+  | {
+      kind: 'platform-custom-settings';
+      platformId: PlatformId;
+      customSettings: Record<string, unknown>;
+    };
+
+/**
  * YouTube-specific custom settings
  */
 export interface YouTubeCustomSettings {
   disableAutoplay: boolean;
   shortsRedirectToWatch: boolean;
+}
+
+/**
+ * Twitter/X-specific custom settings
+ */
+export interface TwitterCustomSettings {
+  listRedirectPath: string;
 }
 
 /**
@@ -125,6 +145,8 @@ export interface PlatformRules {
 export type MessageType =
   | 'GET_CONFIG'
   | 'SET_CONFIG'
+  | 'UPDATE_CONFIG'
+  | 'SYNC_CONFIG'
   | 'CHECK_URL'
   | 'NAVIGATE'
   | 'GET_STATS'

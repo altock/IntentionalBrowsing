@@ -4,9 +4,12 @@
  * Manages declarativeNetRequest rules and handles messages from popup/content scripts.
  */
 
+import { getAlternativeRules } from './alternative-rules.js';
 import { Storage } from '../shared/storage.js';
+import { applyConfigUpdate } from '../shared/config-updates.js';
+import { createQueuedConfigSync } from '../shared/rule-sync.js';
 import { getBlockDecision } from '../shared/rules.js';
-import type { ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
+import type { ConfigUpdate, ExtensionMessage, ExtensionResponse, PlatformId, StorageSchema } from '../shared/types.js';
 
 /**
  * Rule IDs for declarativeNetRequest
@@ -78,15 +81,44 @@ async function init(): Promise<void> {
 
   // Load config and sync rule states
   const config = await Storage.load();
-  await syncRuleStates(config);
+  await queueRuleStateSync();
 
   console.log('[IntentionalBrowsing] Initialized with config:', config.globalEnabled ? 'enabled' : 'disabled');
+}
+
+function initializeWithLogging(): void {
+  void init().catch((error) => {
+    console.error('[IntentionalBrowsing] Initialization failed:', error);
+  });
 }
 
 /**
  * Sync declarativeNetRequest rule states with config
  */
-async function syncRuleStates(config: StorageSchema): Promise<void> {
+function getRuleFingerprint(config: StorageSchema): string {
+  return JSON.stringify({
+    globalEnabled: config.globalEnabled,
+    platforms: Object.fromEntries(
+      (Object.keys(config.platforms) as PlatformId[]).map((platformId) => [
+        platformId,
+        {
+          enabled: config.platforms[platformId].enabled,
+          redirectTarget: config.platforms[platformId].redirectTarget,
+          alternativeUrl: config.platforms[platformId].customSettings?.alternativeUrl,
+          hardBlocks: config.platforms[platformId].hardBlocks,
+        },
+      ])
+    ),
+  });
+}
+
+const queueRuleStateSync = createQueuedConfigSync(
+  () => Storage.load(),
+  getRuleFingerprint,
+  applyRuleStates
+);
+
+async function applyRuleStates(config: StorageSchema): Promise<void> {
   const enableRulesetIds: string[] = [];
   const disableRulesetIds: string[] = [];
 
@@ -109,6 +141,7 @@ async function syncRuleStates(config: StorageSchema): Promise<void> {
     console.log('[IntentionalBrowsing] Rule states synced');
   } catch (error) {
     console.error('[IntentionalBrowsing] Failed to sync rule states:', error);
+    throw error;
   }
 
   // Sync dynamic rules for all platforms with configurable redirect targets
@@ -120,8 +153,9 @@ async function syncRuleStates(config: StorageSchema): Promise<void> {
  * Uses dynamic rules because redirect destinations are user-configurable
  */
 async function syncDynamicBlockRules(config: StorageSchema): Promise<void> {
-  const allRulesToAdd: chrome.declarativeNetRequest.Rule[] = [];
-  const allRuleIdsToRemove: number[] = [];
+  const alternatives = getAlternativeRules(config);
+  const allRulesToAdd = alternatives.addRules;
+  const allRuleIdsToRemove = alternatives.removeRuleIds;
 
   for (const platformId of Object.keys(PLATFORM_BLOCK_PATTERNS) as PlatformId[]) {
     const patterns = PLATFORM_BLOCK_PATTERNS[platformId];
@@ -176,6 +210,7 @@ async function syncDynamicBlockRules(config: StorageSchema): Promise<void> {
     console.log(`[IntentionalBrowsing] Dynamic rules synced: ${allRulesToAdd.length} active`);
   } catch (error) {
     console.error('[IntentionalBrowsing] Failed to sync dynamic rules:', error);
+    throw error;
   }
 }
 
@@ -198,6 +233,11 @@ chrome.runtime.onMessage.addListener(
 
 async function handleMessage(message: ExtensionMessage): Promise<ExtensionResponse> {
   switch (message.type) {
+    case 'SYNC_CONFIG': {
+      await queueRuleStateSync();
+      return { success: true };
+    }
+
     case 'GET_CONFIG': {
       const config = await Storage.load();
       return { success: true, data: config };
@@ -205,9 +245,18 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
 
     case 'SET_CONFIG': {
       const config = message.payload as StorageSchema;
-      await Storage.save(config);
-      await syncRuleStates(config);
-      return { success: true };
+      const savedConfig = await Storage.update(() => config);
+      await queueRuleStateSync();
+      return { success: true, data: savedConfig };
+    }
+
+    case 'UPDATE_CONFIG': {
+      const update = message.payload as ConfigUpdate;
+      const config = await Storage.update((currentConfig) =>
+        applyConfigUpdate(currentConfig, update)
+      );
+      await queueRuleStateSync();
+      return { success: true, data: config };
     }
 
     case 'CHECK_URL': {
@@ -241,18 +290,19 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
 /**
  * Listen for storage changes to sync rule states
  */
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
+chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.config) {
-    const newConfig = changes.config.newValue as StorageSchema;
-    await syncRuleStates(newConfig);
+    void queueRuleStateSync().catch((error) => {
+      console.error('[IntentionalBrowsing] Failed to resync rules after storage change:', error);
+    });
   }
 });
 
 // Initialize on install/update
-chrome.runtime.onInstalled.addListener(init);
+chrome.runtime.onInstalled.addListener(initializeWithLogging);
 
 // Initialize on startup
-chrome.runtime.onStartup.addListener(init);
+chrome.runtime.onStartup.addListener(initializeWithLogging);
 
 // Also run init immediately for when extension is loaded
-init();
+initializeWithLogging();

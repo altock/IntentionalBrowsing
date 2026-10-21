@@ -1,6 +1,8 @@
 import type { BlockDecision, BlockMode, PlatformId, StorageSchema } from './types.js';
 import { PLATFORM_RULES, DEFAULT_STORAGE } from './config.js';
 
+declare const browser: typeof chrome | undefined;
+
 /**
  * Match a URL path against a pattern
  * Supports:
@@ -153,6 +155,21 @@ export function checkUrl(url: string): BlockDecision {
   };
 }
 
+/** Validate an alternative destination and reject blocked feeds to prevent loops. */
+export function normalizeAlternativeUrl(input: unknown): string | null {
+  if (typeof input !== 'string' || !input.trim()) return null;
+  try {
+    const url = new URL(input.trim());
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return null;
+    const normalized = new URL(url.href);
+    normalized.pathname = normalized.pathname.toLowerCase();
+    if (checkUrl(normalized.href).shouldBlock) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get the block decision considering config, pause state, and platform settings
  */
@@ -221,13 +238,46 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
     }
   }
 
-  return baseDecision;
+  if (platformConfig.redirectTarget === 'custom') {
+    return {
+      ...baseDecision,
+      mode: 'hard',
+      redirectUrl: normalizeAlternativeUrl(platformConfig.customSettings?.alternativeUrl) ?? 'blocked',
+    };
+  }
+
+  // Check if user's redirect target is a navigation-level redirect
+  const redirectTarget = platformConfig.redirectTarget;
+  const isNavigationRedirect = redirectTarget === 'blocked' || redirectTarget.startsWith('/');
+
+  if (!isNavigationRedirect) {
+    const isContentScriptRedirect =
+      baseDecision.mode === 'soft' ||
+      (platformId === 'twitter' && redirectTarget === 'following-tab');
+
+    if (isContentScriptRedirect) {
+      return {
+        shouldBlock: false,
+        mode: 'allow',
+        reason: `Redirect '${redirectTarget}' handled by content script`,
+      };
+    }
+
+    return baseDecision;
+  }
+
+  // Apply user's redirect target for navigation-level redirects
+  return {
+    ...baseDecision,
+    mode: 'hard',
+    redirectUrl: redirectTarget,
+  };
 }
 
 /**
  * Map a pathname to its corresponding hard block setting name
  */
-function getHardBlockSetting(platformId: PlatformId, pathname: string): string | null {
+export function getHardBlockSetting(platformId: PlatformId, pathname: string): string | null {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/';
 
   switch (platformId) {
@@ -241,14 +291,14 @@ function getHardBlockSetting(platformId: PlatformId, pathname: string): string |
       break;
 
     case 'reddit':
-      if (normalizedPath === '/' || normalizedPath === '/home') {
+      if (normalizedPath === '/' || normalizedPath === '/home' || normalizedPath.startsWith('/home/')) {
         return 'home';
       }
       if (normalizedPath === '/popular' || normalizedPath.startsWith('/popular/') ||
           normalizedPath === '/r/popular' || normalizedPath.startsWith('/r/popular/')) {
         return 'popular';
       }
-      if (normalizedPath === '/all' || normalizedPath === '/r/all' ||
+      if (normalizedPath === '/all' || normalizedPath.startsWith('/all/') || normalizedPath === '/r/all' ||
           normalizedPath.startsWith('/r/all/')) {
         return 'all';
       }
@@ -300,13 +350,13 @@ function getHardBlockSetting(platformId: PlatformId, pathname: string): string |
 export function buildRedirectUrl(
   originalUrl: string,
   redirectTarget: string,
-  extensionId?: string
+  _extensionId?: string
 ): string {
   // Special case: redirect to blocked page
   if (redirectTarget === 'blocked') {
-    const blockedPage = extensionId
-      ? `chrome-extension://${extensionId}/ui/blocked.html`
-      : '/ui/blocked.html';
+    // Use runtime.getURL for correct extension URL in both Chrome and Firefox
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    const blockedPage = api.runtime.getURL('ui/blocked.html');
     const params = new URLSearchParams({ url: originalUrl });
     return `${blockedPage}?${params.toString()}`;
   }
@@ -323,8 +373,11 @@ export function buildRedirectUrl(
       // Fall through to default redirect
     }
     // Fallback if we can't extract short ID
-    return buildRedirectUrl(originalUrl, '/feed/subscriptions', extensionId);
+    return buildRedirectUrl(originalUrl, '/feed/subscriptions', _extensionId);
   }
+
+  const alternativeUrl = normalizeAlternativeUrl(redirectTarget);
+  if (alternativeUrl) return alternativeUrl;
 
   // Relative redirect on same domain
   try {

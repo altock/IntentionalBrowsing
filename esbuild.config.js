@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { copyFileSync, mkdirSync, existsSync, readdirSync, cpSync } from 'fs';
+import { copyFileSync, mkdirSync, existsSync, readdirSync, cpSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 
 const isWatch = process.argv.includes('--watch');
@@ -8,7 +8,16 @@ const commonOptions = {
   bundle: true,
   sourcemap: true,
   target: 'es2022',
+};
+
+const mv3Options = {
+  ...commonOptions,
   format: 'esm',
+};
+
+const mv2Options = {
+  ...commonOptions,
+  format: 'iife',
 };
 
 // MV3 (Chrome) build
@@ -45,13 +54,20 @@ function ensureDir(dir) {
   }
 }
 
-function copyStaticFiles(targetDir, includeMv3Rules = false) {
+function copyStaticFiles(targetDir, includeMv3Rules = false, isFirefox = false) {
   // Copy HTML files
   const htmlFiles = ['popup.html', 'blocked.html'];
   htmlFiles.forEach(file => {
     const src = join('src/ui', file);
     if (existsSync(src)) {
-      copyFileSync(src, join(targetDir, 'ui', file));
+      if (isFirefox) {
+        // For Firefox, remove type="module" from script tags
+        let content = readFileSync(src, 'utf-8');
+        content = content.replace(/ type="module"/g, '');
+        writeFileSync(join(targetDir, 'ui', file), content);
+      } else {
+        copyFileSync(src, join(targetDir, 'ui', file));
+      }
     }
   });
 
@@ -98,10 +114,12 @@ async function buildExtension(name, entries, manifestSrc, outDir, options = {}) 
     return;
   }
 
+  const buildOptions = options.esbuildOptions || commonOptions;
+
   try {
     if (isWatch) {
       const ctx = await esbuild.context({
-        ...commonOptions,
+        ...buildOptions,
         entryPoints: existingEntries,
         outdir: outDir,
       });
@@ -109,7 +127,7 @@ async function buildExtension(name, entries, manifestSrc, outDir, options = {}) 
       console.log(`Watching ${name}...`);
     } else {
       await esbuild.build({
-        ...commonOptions,
+        ...buildOptions,
         entryPoints: existingEntries,
         outdir: outDir,
       });
@@ -122,7 +140,7 @@ async function buildExtension(name, entries, manifestSrc, outDir, options = {}) 
     }
 
     // Copy static files
-    copyStaticFiles(outDir, options.includeMv3Rules || false);
+    copyStaticFiles(outDir, options.includeMv3Rules || false, options.isFirefox || false);
   } catch (err) {
     console.error(`Failed to build ${name}:`, err);
     if (!isWatch) process.exit(1);
@@ -131,8 +149,8 @@ async function buildExtension(name, entries, manifestSrc, outDir, options = {}) 
 
 async function main() {
   await Promise.all([
-    buildExtension('Chrome (MV3)', mv3Entries, 'src/mv3/manifest.json', 'dist/chrome', { includeMv3Rules: true }),
-    buildExtension('Firefox (MV2)', mv2Entries, 'src/mv2/manifest.json', 'dist/firefox'),
+    buildExtension('Chrome (MV3)', mv3Entries, 'src/mv3/manifest.json', 'dist/chrome', { includeMv3Rules: true, esbuildOptions: mv3Options }),
+    buildExtension('Firefox (MV2)', mv2Entries, 'src/mv2/manifest.json', 'dist/firefox', { esbuildOptions: mv2Options, isFirefox: true }),
   ]);
 
   if (!isWatch) {

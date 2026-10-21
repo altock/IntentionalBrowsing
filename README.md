@@ -23,6 +23,12 @@ A browser extension that blocks algorithmic feeds while preserving the features 
 
 Or load unpacked from `dist/chrome` or `dist/firefox` after building.
 
+## Alternative pages
+
+Open the extension popup, choose **Alternative page** in a site's redirect menu, enter a full `https://` or `http://` address, and select **Save page**. Blocked visits to that site go there automatically. Each site can have its own destination.
+
+Choose another redirect option to stop using the alternative page. Destinations cannot be blocked feeds. Until an address is saved, the extension shows its block page.
+
 ## Build
 
 ```bash
@@ -38,7 +44,7 @@ Output:
 ## Test
 
 ```bash
-npm test             # Unit tests (Vitest)
+npm test             # Unit and integration tests (Vitest)
 npm run test:e2e     # E2E tests (Playwright)
 ```
 

@@ -7,13 +7,9 @@ import { fileURLToPath } from 'url';
  *
  * These tests verify:
  * - Extension loads successfully in Chrome
- * - Blocked URLs (twitter.com) redirect to allowed paths (/messages)
+ * - Blocked URLs (twitter.com) redirect to the extension's blocked page
  * - Allowed URLs (twitter.com/messages) work without interference
  * - Extension popup opens and displays correctly
- *
- * Note: When testing against real sites like Twitter/X, the site may redirect
- * to a login page. We verify the extension redirect happened by checking that
- * the redirect_after_login parameter contains /messages.
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -105,22 +101,27 @@ async function safeNavigate(page: Page, url: string): Promise<void> {
 }
 
 /**
- * Helper to verify redirect behavior.
- * When not logged in, Twitter redirects to login page with a redirect_after_login param.
- * We check that either:
- * 1. URL contains /messages directly (if logged in or site allows)
- * 2. URL contains redirect_after_login=%2Fmessages (extension redirected, then Twitter asked for login)
+ * Check whether a URL is this extension's blocked page.
  */
-function verifyRedirectToMessages(url: string): boolean {
-  // Direct match - we're on /messages
-  if (/(?:twitter|x)\.com\/messages/.test(url)) {
-    return true;
+function isBlockedExtensionPage(url: string, extensionId: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'chrome-extension:' &&
+      parsed.host === extensionId &&
+      parsed.pathname === '/ui/blocked.html';
+  } catch {
+    return false;
   }
-  // Redirect to login with /messages as the destination
-  if (/redirect_after_login=%2Fmessages/.test(url)) {
-    return true;
+}
+
+function isTwitterOrXPage(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'twitter.com' || host.endsWith('.twitter.com') ||
+      host === 'x.com' || host.endsWith('.x.com');
+  } catch {
+    return false;
   }
-  return false;
 }
 
 test.describe('Intentional Browsing Extension', () => {
@@ -146,24 +147,24 @@ test.describe('Intentional Browsing Extension', () => {
 
   test('extension loads and redirects work', async () => {
     // This is a combined test to verify extension is working
-    // by checking that twitter.com redirects to /messages
+    // by checking that twitter.com redirects to the blocked page.
     const page = await context.newPage();
 
     // Navigate to twitter.com (blocked by extension rules)
-    // The extension should redirect to /messages
+    // The extension should redirect to its blocked page.
     await safeNavigate(page, 'https://twitter.com/');
 
     // Wait for potential redirect
     await page.waitForTimeout(3000);
 
-    // Verify we were redirected to /messages (or x.com equivalent)
+    // Verify we were redirected to the extension's blocked page.
     const url = page.url();
-    expect(verifyRedirectToMessages(url)).toBe(true);
+    expect(isBlockedExtensionPage(url, extensionId)).toBe(true);
 
     await page.close();
   });
 
-  test('twitter.com/home redirects to /messages', async () => {
+  test('twitter.com/home redirects to the blocked page', async () => {
     const page = await context.newPage();
 
     // Navigate to twitter.com/home (blocked by extension rules)
@@ -172,25 +173,26 @@ test.describe('Intentional Browsing Extension', () => {
     // Wait for potential redirect
     await page.waitForTimeout(3000);
 
-    // Verify we were redirected to /messages
+    // Verify we were redirected to the extension's blocked page.
     const url = page.url();
-    expect(verifyRedirectToMessages(url)).toBe(true);
+    expect(isBlockedExtensionPage(url, extensionId)).toBe(true);
 
     await page.close();
   });
 
-  test('twitter.com/explore redirects to /messages', async () => {
+  test('twitter.com/explore remains allowed', async () => {
     const page = await context.newPage();
 
-    // Navigate to twitter.com/explore (blocked by extension rules)
+    // Explore is intentionally allowed by the extension rules.
     await safeNavigate(page, 'https://twitter.com/explore');
 
     // Wait for potential redirect
     await page.waitForTimeout(3000);
 
-    // Verify we were redirected to /messages
+    // Twitter may ask for login, but the extension must not block this route.
     const url = page.url();
-    expect(verifyRedirectToMessages(url)).toBe(true);
+    expect(isTwitterOrXPage(url)).toBe(true);
+    expect(isBlockedExtensionPage(url, extensionId)).toBe(false);
 
     await page.close();
   });
@@ -204,9 +206,10 @@ test.describe('Intentional Browsing Extension', () => {
     // Wait to ensure no redirect happens
     await page.waitForTimeout(3000);
 
-    // Verify we stayed on /messages (or were redirected to login with messages as destination)
+    // Verify the extension did not redirect this allowed route to its blocked page.
     const url = page.url();
-    expect(verifyRedirectToMessages(url)).toBe(true);
+    expect(isTwitterOrXPage(url)).toBe(true);
+    expect(isBlockedExtensionPage(url, extensionId)).toBe(false);
 
     await page.close();
   });
@@ -249,9 +252,9 @@ test.describe('Intentional Browsing Extension', () => {
     const globalToggle = page.locator('#global-enabled');
     await expect(globalToggle).toHaveCount(1);
 
-    // Verify pause buttons exist
-    const pauseButtons = page.locator('.btn-pause');
-    await expect(pauseButtons).toHaveCount(2);
+    // Verify the enabled platform controls render from stored configuration.
+    const platformToggles = page.locator('.platform-toggle');
+    await expect(platformToggles).toHaveCount(6);
 
     // Verify platforms section exists
     const platforms = page.locator('#platforms');
@@ -297,4 +300,183 @@ test.describe('Intentional Browsing Extension', () => {
 
     await page.close();
   });
+
+  test('popup setting changes update an already-open soft-blocked page', async () => {
+    test.skip(!extensionId, 'Extension ID not available for popup test');
+
+    await context.route('https://www.youtube.com/**', async route => {
+      await route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><html><body>
+          <input aria-label="Search">
+          <ytd-rich-grid-renderer><div>Recommendation feed</div></ytd-rich-grid-renderer>
+        </body></html>`,
+      });
+    });
+
+    const youtubePage = await context.newPage();
+    const popupPage = await context.newPage();
+
+    try {
+      await youtubePage.goto('https://www.youtube.com/');
+      const feed = youtubePage.locator('ytd-rich-grid-renderer');
+      await expect(feed).toBeHidden({ timeout: 5000 });
+
+      await popupPage.goto(`chrome-extension://${extensionId}/ui/popup.html`);
+      const youtubeToggle = popupPage.locator(
+        '.platform[data-platform="youtube"] input[type="checkbox"]'
+      );
+      await expect(youtubeToggle).toBeChecked();
+
+      await popupPage.locator(
+        '.platform[data-platform="youtube"] .platform-toggle'
+      ).click();
+      await expect(feed).toBeVisible({ timeout: 5000 });
+
+      await popupPage.locator(
+        '.platform[data-platform="youtube"] .platform-toggle'
+      ).click();
+      await expect(feed).toBeHidden({ timeout: 5000 });
+    } finally {
+      await popupPage.close();
+      await youtubePage.close();
+      await context.unroute('https://www.youtube.com/**');
+    }
+  });
+  test('YouTube navigation and delayed rule synchronization preserve blocking', async () => {
+    expect(extensionId).toBeTruthy();
+    const worker = context.serviceWorkers()[0];
+    const popup = await context.newPage();
+    const page = await context.newPage();
+    await context.route('https://www.youtube.com/**', route => route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><html><body><main></main><aside id="related">Recommendations</aside></body></html>',
+    }));
+    await popup.goto(`chrome-extension://${extensionId}/ui/popup.html`);
+    const originalConfig = await popup.evaluate(async () => {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+      return response.data;
+    });
+    try {
+      await page.goto('https://www.youtube.com/watch?v=initial');
+      // Hidden watch-page recommendations confirm that content-script initialization finished.
+      await expect(page.locator('#related')).toBeHidden();
+      for (let visit = 0; visit < 2; visit++) {
+        await page.evaluate(() => {
+          history.pushState({}, '', '/');
+          document.dispatchEvent(new Event('yt-navigate-finish'));
+        });
+        await page.evaluate(() => {
+          document.querySelector('main')!.innerHTML = '<ytd-rich-grid-renderer>Home feed</ytd-rich-grid-renderer>';
+        });
+        await expect(page.locator('ytd-rich-grid-renderer')).toBeHidden();
+        await page.evaluate(() => {
+          history.pushState({}, '', '/watch?v=next');
+          document.dispatchEvent(new Event('yt-navigate-finish'));
+          document.querySelector('main')!.innerHTML = '<ytd-rich-grid-renderer>Watch grid</ytd-rich-grid-renderer>';
+        });
+        // Cross two animation frames to let any stale observer callback run.
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        await expect(page.locator('ytd-rich-grid-renderer')).toBeVisible();
+      }
+      await popup.evaluate(async () => {
+        await chrome.runtime.sendMessage({ type: 'UPDATE_CONFIG', payload: {
+          kind: 'platform-enabled', platformId: 'youtube', enabled: false,
+        } });
+        await chrome.runtime.sendMessage({ type: 'UPDATE_CONFIG', payload: {
+          kind: 'platform-redirect-target', platformId: 'youtube', redirectTarget: 'blocked',
+        } });
+      });
+      await popup.reload();
+      await page.goto('https://www.youtube.com/');
+      const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+      await worker.evaluate(() => {
+        const state = globalThis as any;
+        state.originalUpdateRules = chrome.declarativeNetRequest.updateDynamicRules.bind(chrome.declarativeNetRequest);
+        chrome.declarativeNetRequest.updateDynamicRules = async options => {
+          await new Promise(resolve => { state.releaseRules = resolve; });
+          return state.originalUpdateRules(options);
+        };
+      });
+      await popup.locator('.platform[data-platform="youtube"] .platform-toggle').click();
+      await expect.poll(() => worker.evaluate(() => typeof (globalThis as any).releaseRules)).toBe('function');
+      // Give the content script time to receive storage.onChanged while rule application is held.
+      await page.waitForTimeout(200);
+      expect(page.url()).toBe('https://www.youtube.com/');
+      expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
+      await worker.evaluate(() => {
+        const state = globalThis as any;
+        chrome.declarativeNetRequest.updateDynamicRules = state.originalUpdateRules;
+        state.releaseRules();
+        delete state.releaseRules;
+      });
+      await expect(page).toHaveURL(`chrome-extension://${extensionId}/ui/blocked.html`);
+    } finally {
+      await worker.evaluate(() => {
+        const state = globalThis as any;
+        if (state.originalUpdateRules) chrome.declarativeNetRequest.updateDynamicRules = state.originalUpdateRules;
+        state.releaseRules?.();
+        delete state.originalUpdateRules;
+        delete state.releaseRules;
+      });
+      await page.close();
+      await popup.evaluate(async config => {
+        const response = await chrome.runtime.sendMessage({ type: 'SET_CONFIG', payload: config });
+        if (!response.success) throw new Error(response.error);
+      }, originalConfig);
+      await popup.close();
+      await context.unroute('https://www.youtube.com/**');
+    }
+  });
+
+  test('alternative redirects respect disabled surfaces and nested Reddit feeds', async () => {
+    const popup = await context.newPage();
+    const page = await context.newPage();
+    const destination = 'https://example.org/intentional-review';
+    await context.route('https://example.org/**', route => route.fulfill({
+      contentType: 'text/html', body: '<h1>Alternative page</h1>',
+    }));
+    const sourceFixture = (route: import('@playwright/test').Route) => route.fulfill({
+      contentType: 'text/html', body: '<h1>Allowed surface</h1><aside id="related">Recommendations</aside>',
+    });
+    await context.route('https://www.youtube.com/**', sourceFixture);
+    await context.route('https://www.reddit.com/**', sourceFixture);
+    await popup.goto(`chrome-extension://${extensionId}/ui/popup.html`);
+    const originalConfig = await popup.evaluate(async () => (await chrome.runtime.sendMessage({ type: 'GET_CONFIG' })).data);
+    try {
+      for (const [platformId, source, setting] of [
+        ['youtube', 'https://www.youtube.com/shorts/abc', 'shorts'],
+        ['reddit', 'https://www.reddit.com/home/nested?sort=top', 'home'],
+        ['reddit', 'https://www.reddit.com/all/nested', 'all'],
+      ]) {
+        for (const enabled of [true, false, true]) {
+          await popup.evaluate(async ({ platformId, setting, enabled, destination }) => {
+            const config = (await chrome.runtime.sendMessage({ type: 'GET_CONFIG' })).data;
+            config.platforms[platformId].enabled = true;
+            config.platforms[platformId].redirectTarget = 'custom';
+            config.platforms[platformId].customSettings = { alternativeUrl: destination };
+            config.platforms[platformId].hardBlocks[setting] = enabled;
+            const response = await chrome.runtime.sendMessage({ type: 'SET_CONFIG', payload: config });
+            if (!response.success) throw new Error(response.error);
+          }, { platformId, setting, enabled, destination });
+          await page.goto(source).catch(error => {
+            if (!/ERR_ABORTED|interrupted/.test(String(error))) throw error;
+          });
+          await expect(page).toHaveURL(enabled ? destination : source);
+          await expect(page.locator('h1')).toHaveText(enabled ? 'Alternative page' : 'Allowed surface');
+        }
+      }
+    } finally {
+      await page.close();
+      await popup.evaluate(async config => {
+        const response = await chrome.runtime.sendMessage({ type: 'SET_CONFIG', payload: config });
+        if (!response.success) throw new Error(response.error);
+      }, originalConfig);
+      await popup.close();
+      await context.unroute('https://example.org/**');
+      await context.unroute('https://www.youtube.com/**', sourceFixture);
+      await context.unroute('https://www.reddit.com/**', sourceFixture);
+    }
+  });
+
 });

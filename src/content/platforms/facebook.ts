@@ -24,7 +24,7 @@ class FacebookContentScript extends PlatformContentScript {
     const config = response.data;
 
     // Check if Facebook blocking is enabled at all
-    if (!config?.platforms.facebook.enabled) {
+    if (!config?.globalEnabled || !config?.platforms.facebook.enabled) {
       console.log('[IntentionalBrowsing] Facebook blocking is disabled');
       return;
     }

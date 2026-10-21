@@ -3,7 +3,8 @@
  */
 
 import { Router, getRouter } from './router.js';
-import type { BlockDecision, ExtensionMessage, ExtensionResponse, PlatformId, SelectorConfig } from '../shared/types.js';
+import type { BlockDecision, ExtensionMessage, ExtensionResponse, PlatformId, SelectorConfig, StorageSchema } from '../shared/types.js';
+import { havePlatformSettingsChanged } from '../shared/platform-settings.js';
 
 /**
  * Send a message to the background script
@@ -11,6 +12,10 @@ import type { BlockDecision, ExtensionMessage, ExtensionResponse, PlatformId, Se
 export async function sendMessage<T>(message: ExtensionMessage): Promise<ExtensionResponse<T>> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response: ExtensionResponse<T>) => {
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
       resolve(response || { success: false, error: 'No response' });
     });
   });
@@ -110,11 +115,38 @@ export abstract class PlatformContentScript {
   protected router: Router;
   protected observer: MutationObserver | null = null;
   protected platformId: PlatformId;
+  private settingsRevision = 0;
+  private destroyed = false;
 
   constructor(platformId: PlatformId) {
     this.platformId = platformId;
     this.router = getRouter();
+    chrome.storage.onChanged.addListener(this.handleStorageChange);
   }
+
+  private handleStorageChange = (
+    changes: Record<string, chrome.storage.StorageChange>,
+    areaName: string
+  ): void => {
+    const configChange = changes.config;
+    if (areaName !== 'local' || !configChange) {
+      return;
+    }
+
+    const previousConfig = configChange.oldValue as StorageSchema | undefined;
+    const nextConfig = configChange.newValue as StorageSchema | undefined;
+    if (havePlatformSettingsChanged(this.platformId, previousConfig, nextConfig)) {
+      const revision = ++this.settingsRevision;
+      void sendMessage({ type: 'SYNC_CONFIG' }).then((response) => {
+        if (this.destroyed || revision !== this.settingsRevision) return;
+        if (response.success) {
+          window.location.reload();
+        } else {
+          console.error('[IntentionalBrowsing] Settings synchronization failed:', response.error);
+        }
+      }).catch(console.error);
+    }
+  };
 
   /**
    * Initialize the content script
@@ -128,6 +160,11 @@ export abstract class PlatformContentScript {
     // Check current URL
     const decision = await checkCurrentUrl();
 
+    if (decision.shouldBlock && /^https?:\/\//.test(decision.redirectUrl ?? '')) {
+      this.router.redirect(decision.redirectUrl!);
+      return;
+    }
+
     if (decision.shouldBlock) {
       if (decision.mode === 'soft') {
         // Apply soft blocks
@@ -140,6 +177,10 @@ export abstract class PlatformContentScript {
     // (hard blocks handled by background via webNavigation API)
     this.router.onLocationChange(async () => {
       const newDecision = await checkCurrentUrl();
+      if (newDecision.shouldBlock && /^https?:\/\//.test(newDecision.redirectUrl ?? '')) {
+        this.router.redirect(newDecision.redirectUrl!);
+        return;
+      }
       if (newDecision.shouldBlock && newDecision.mode === 'soft') {
         this.applySoftBlocks();
       }
@@ -163,7 +204,9 @@ export abstract class PlatformContentScript {
    * Clean up
    */
   destroy(): void {
+    this.destroyed = true;
     this.router.destroy();
+    chrome.storage.onChanged.removeListener(this.handleStorageChange);
     if (this.observer) {
       this.observer.disconnect();
     }

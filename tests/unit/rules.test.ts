@@ -347,6 +347,7 @@ describe('getBlockDecision', () => {
     const result = getBlockDecision('https://twitter.com/', DEFAULT_STORAGE);
     expect(result.shouldBlock).toBe(true);
     expect(result.mode).toBe('hard');
+    expect(result.redirectUrl).toBe('blocked');
   });
 
   it('should respect hard block settings', () => {
@@ -365,5 +366,23 @@ describe('getBlockDecision', () => {
     expect(getBlockDecision('https://twitter.com/', config).shouldBlock).toBe(false);
     // Messages should always be allowed
     expect(getBlockDecision('https://twitter.com/messages', config).shouldBlock).toBe(false);
+  });
+
+  it('keeps YouTube hard blocks active when the homepage uses feed-block mode', () => {
+    const home = getBlockDecision('https://www.youtube.com/', DEFAULT_STORAGE);
+    const short = getBlockDecision('https://www.youtube.com/shorts/abc123', DEFAULT_STORAGE);
+    const trending = getBlockDecision('https://www.youtube.com/feed/trending', DEFAULT_STORAGE);
+
+    expect(home).toMatchObject({ shouldBlock: false, mode: 'allow' });
+    expect(short).toMatchObject({
+      shouldBlock: true,
+      mode: 'hard',
+      redirectUrl: 'shorts-redirect',
+    });
+    expect(trending).toMatchObject({
+      shouldBlock: true,
+      mode: 'hard',
+      redirectUrl: '/feed/subscriptions',
+    });
   });
 });

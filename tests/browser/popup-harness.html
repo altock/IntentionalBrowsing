@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intentional Browsing popup harness</title>
+  <link rel="stylesheet" href="/dist/chrome/ui/popup.css">
+  <style>
+    .harness-status { padding: 12px 16px; border-top: 1px solid #ddd; font: 12px/1.5 monospace; }
+  </style>
+  <script>
+    const storageKey = `intentional-browsing-harness:${location.search}`;
+    const defaultConfig = {
+      schemaVersion: 1,
+      globalEnabled: true,
+      platforms: {
+        twitter: { enabled: true, hardBlocks: { home: true }, softBlocks: {}, redirectTarget: 'blocked', customSettings: { listRedirectPath: '' } },
+        reddit: { enabled: true, hardBlocks: { home: true, popular: true, all: true }, softBlocks: {}, redirectTarget: 'blocked', customSettings: { blockedSubreddits: [] } },
+        youtube: { enabled: true, hardBlocks: { home: true, shorts: true, trending: true, explore: true }, softBlocks: { recommendations: true, endCards: true, shortsInFeed: true }, redirectTarget: 'feed-block', customSettings: { disableAutoplay: true, shortsRedirectToWatch: true } },
+        instagram: { enabled: true, hardBlocks: { home: true, explore: true, reels: true }, softBlocks: {}, redirectTarget: '/direct/inbox/' },
+        facebook: { enabled: false, hardBlocks: { watch: true, reels: true }, softBlocks: { feed: true, stories: true, peopleYouMayKnow: true }, redirectTarget: '/messages/' },
+        linkedin: { enabled: false, hardBlocks: {}, softBlocks: { feed: true, peopleYouMayKnow: true }, redirectTarget: 'feed-block' },
+        tiktok: { enabled: true, hardBlocks: { all: true }, softBlocks: {}, redirectTarget: 'blocked' }
+      },
+      stats: { blocksTotal: 0, lastBlock: null }
+    };
+    let storedConfig = JSON.parse(localStorage.getItem(storageKey) || JSON.stringify(defaultConfig));
+    let saveNumber = 0;
+    const saveHistory = [];
+    let updateQueue = Promise.resolve();
+
+    function clone(value) { return JSON.parse(JSON.stringify(value)); }
+    function applyUpdate(config, update) {
+      const next = clone(config);
+      if (update.kind === 'global-enabled') {
+        next.globalEnabled = update.enabled;
+      } else if (update.kind === 'platform-enabled') {
+        next.platforms[update.platformId].enabled = update.enabled;
+      } else if (update.kind === 'platform-redirect-target') {
+        next.platforms[update.platformId].redirectTarget = update.redirectTarget;
+      } else if (update.kind === 'platform-custom-settings') {
+        next.platforms[update.platformId].customSettings = {
+          ...(next.platforms[update.platformId].customSettings || {}),
+          ...update.customSettings
+        };
+      }
+      return next;
+    }
+    function showStoredState() {
+      const status = document.getElementById('harness-status');
+      if (status) {
+        const history = saveHistory.length ? `; ${saveHistory.join(', ')}` : '';
+        status.textContent = `Persisted state: global ${storedConfig.globalEnabled ? 'enabled' : 'disabled'}, Twitter ${storedConfig.platforms.twitter.enabled ? 'enabled' : 'disabled'}, YouTube ${storedConfig.platforms.youtube.enabled ? 'enabled' : 'disabled'}${history}`;
+      }
+    }
+
+    window.chrome = {
+      runtime: {
+        sendMessage(message, callback) {
+          if (message.type === 'GET_CONFIG') {
+            queueMicrotask(() => callback({ success: true, data: clone(storedConfig) }));
+            return;
+          }
+
+          if (message.type === 'SET_CONFIG') {
+            const snapshot = clone(message.payload);
+            const delay = saveNumber++ === 0 ? 250 : 20;
+            const label = snapshot.globalEnabled ? 'enabled' : 'disabled';
+            saveHistory.push(`scheduled ${label}/${delay}ms`);
+            showStoredState();
+            setTimeout(() => {
+              storedConfig = snapshot;
+              localStorage.setItem(storageKey, JSON.stringify(storedConfig));
+              saveHistory.push(`saved ${label}`);
+              showStoredState();
+              callback({ success: true, data: clone(storedConfig) });
+            }, delay);
+            return;
+          }
+
+          if (message.type === 'UPDATE_CONFIG') {
+            const update = clone(message.payload);
+            const delay = saveNumber++ === 0 ? 250 : 20;
+            const label = update.kind === 'global-enabled'
+              ? `global ${update.enabled ? 'enabled' : 'disabled'}`
+              : `${update.platformId} ${update.enabled ? 'enabled' : 'disabled'}`;
+            saveHistory.push(`queued ${label}/${delay}ms`);
+            showStoredState();
+            updateQueue = updateQueue.then(() => new Promise((resolve) => {
+              setTimeout(() => {
+                storedConfig = applyUpdate(storedConfig, update);
+                localStorage.setItem(storageKey, JSON.stringify(storedConfig));
+                saveHistory.push(`saved ${label}`);
+                showStoredState();
+                callback({ success: true, data: clone(storedConfig) });
+                resolve();
+              }, delay);
+            }));
+            return;
+          }
+
+          callback({ success: false, error: `Unsupported message: ${message.type}` });
+        }
+      }
+    };
+    addEventListener('DOMContentLoaded', showStoredState);
+  </script>
+</head>
+<body>
+  <div class="popup">
+    <header class="header">
+      <h1 class="title">Intentional Browsing</h1>
+      <label class="global-toggle">
+        <span>Global</span>
+        <input type="checkbox" id="global-enabled" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </header>
+    <main class="platforms" id="platforms"></main>
+  </div>
+  <div class="harness-status" id="harness-status"></div>
+  <script src="/dist/chrome/ui/popup.js" type="module"></script>
+</body>
+</html>

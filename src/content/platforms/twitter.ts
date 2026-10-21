@@ -9,7 +9,8 @@
  */
 
 import { PlatformContentScript, sendMessage } from '../base.js';
-import type { StorageSchema } from '../../shared/types.js';
+import type { StorageSchema, TwitterCustomSettings } from '../../shared/types.js';
+import { normalizeTwitterListPath } from '../../shared/platform-settings.js';
 
 class TwitterContentScript extends PlatformContentScript {
   private hasClickedFollowingTab = false;
@@ -60,6 +61,14 @@ class TwitterContentScript extends PlatformContentScript {
         window.location.href = chrome.runtime.getURL('/ui/blocked.html');
         break;
       case 'following-tab':
+        {
+          const customSettings = twitterConfig.customSettings as TwitterCustomSettings | undefined;
+          const listPath = normalizeTwitterListPath(customSettings?.listRedirectPath ?? '');
+          if (listPath) {
+            window.location.href = `https://x.com${listPath}`;
+            break;
+          }
+        }
         // Auto-click Following tab
         this.waitForAndClickFollowingTab();
         break;

@@ -3,12 +3,17 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 /**
- * Playwright configuration for Chrome extension E2E testing.
+ * Playwright configuration for browser extension E2E testing.
  *
  * Chrome extensions require special handling:
  * - Must use chromium (not firefox/webkit - they don't support extensions)
  * - Must use persistent context (extensions don't work in incognito/headless)
  * - Extensions are loaded via --load-extension and --disable-extensions-except flags
+ *
+ * Firefox extensions:
+ * - Use playwright-webextext library for loading add-ons
+ * - Also require persistent context and headed mode
+ * - Tests are in separate file (firefox.spec.ts) due to different fixture setup
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +37,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-extension',
+      testMatch: 'extension.spec.ts',
       use: {
         // Chrome extensions don't work in headless mode
         headless: false,
@@ -40,6 +46,19 @@ export default defineConfig({
         // Viewport settings
         viewport: { width: 1280, height: 720 },
         // Extension-specific launch options are handled in the test fixtures
+      },
+    },
+    {
+      name: 'firefox-extension',
+      testMatch: 'firefox.spec.ts',
+      use: {
+        // Specify Firefox as the browser
+        browserName: 'firefox',
+        // Firefox extensions don't work in headless mode
+        headless: false,
+        // Viewport settings
+        viewport: { width: 1280, height: 720 },
+        // Extension loading is handled via playwright-webextext in the test file
       },
     },
   ],
