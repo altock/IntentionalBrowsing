@@ -180,9 +180,11 @@ export const REDDIT_RULES: PlatformRules = {
   patterns: [
     { pattern: '/', mode: 'hard', redirect: 'blocked', description: 'Home feed' },
     { pattern: '/home', mode: 'hard', redirect: 'blocked', description: 'Home feed (explicit)' },
+    { pattern: '/home/**', mode: 'hard', redirect: 'blocked', description: 'Home feed subpages' },
     { pattern: '/popular', mode: 'hard', redirect: 'blocked', description: 'Popular' },
     { pattern: '/popular/**', mode: 'hard', redirect: 'blocked', description: 'Popular subpages' },
     { pattern: '/all', mode: 'hard', redirect: 'blocked', description: 'r/all' },
+    { pattern: '/all/**', mode: 'hard', redirect: 'blocked', description: 'r/all subpages' },
     { pattern: '/r/all', mode: 'hard', redirect: 'blocked', description: 'r/all (explicit)' },
     { pattern: '/r/all/**', mode: 'hard', redirect: 'blocked', description: 'r/all subpages' },
     { pattern: '/r/popular', mode: 'hard', redirect: 'blocked', description: 'r/popular' },

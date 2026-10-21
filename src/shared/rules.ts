@@ -164,8 +164,6 @@ export function normalizeAlternativeUrl(input: unknown): string | null {
     const normalized = new URL(url.href);
     normalized.pathname = normalized.pathname.toLowerCase();
     if (checkUrl(normalized.href).shouldBlock) return null;
-    // Chrome's built-in Reddit rule also blocks nested /home routes.
-    if (getPlatformFromUrl(normalized.href) === 'reddit' && normalized.pathname.startsWith('/home/')) return null;
     return url.href;
   } catch {
     return null;
@@ -279,7 +277,7 @@ export function getBlockDecision(url: string, config: StorageSchema): BlockDecis
 /**
  * Map a pathname to its corresponding hard block setting name
  */
-function getHardBlockSetting(platformId: PlatformId, pathname: string): string | null {
+export function getHardBlockSetting(platformId: PlatformId, pathname: string): string | null {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/';
 
   switch (platformId) {
@@ -293,14 +291,14 @@ function getHardBlockSetting(platformId: PlatformId, pathname: string): string |
       break;
 
     case 'reddit':
-      if (normalizedPath === '/' || normalizedPath === '/home') {
+      if (normalizedPath === '/' || normalizedPath === '/home' || normalizedPath.startsWith('/home/')) {
         return 'home';
       }
       if (normalizedPath === '/popular' || normalizedPath.startsWith('/popular/') ||
           normalizedPath === '/r/popular' || normalizedPath.startsWith('/r/popular/')) {
         return 'popular';
       }
-      if (normalizedPath === '/all' || normalizedPath === '/r/all' ||
+      if (normalizedPath === '/all' || normalizedPath.startsWith('/all/') || normalizedPath === '/r/all' ||
           normalizedPath.startsWith('/r/all/')) {
         return 'all';
       }

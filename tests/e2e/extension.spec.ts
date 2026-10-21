@@ -429,4 +429,54 @@ test.describe('Intentional Browsing Extension', () => {
     }
   });
 
+  test('alternative redirects respect disabled surfaces and nested Reddit feeds', async () => {
+    const popup = await context.newPage();
+    const page = await context.newPage();
+    const destination = 'https://example.org/intentional-review';
+    await context.route('https://example.org/**', route => route.fulfill({
+      contentType: 'text/html', body: '<h1>Alternative page</h1>',
+    }));
+    const sourceFixture = (route: import('@playwright/test').Route) => route.fulfill({
+      contentType: 'text/html', body: '<h1>Allowed surface</h1><aside id="related">Recommendations</aside>',
+    });
+    await context.route('https://www.youtube.com/**', sourceFixture);
+    await context.route('https://www.reddit.com/**', sourceFixture);
+    await popup.goto(`chrome-extension://${extensionId}/ui/popup.html`);
+    const originalConfig = await popup.evaluate(async () => (await chrome.runtime.sendMessage({ type: 'GET_CONFIG' })).data);
+    try {
+      for (const [platformId, source, setting] of [
+        ['youtube', 'https://www.youtube.com/shorts/abc', 'shorts'],
+        ['reddit', 'https://www.reddit.com/home/nested?sort=top', 'home'],
+        ['reddit', 'https://www.reddit.com/all/nested', 'all'],
+      ]) {
+        for (const enabled of [true, false, true]) {
+          await popup.evaluate(async ({ platformId, setting, enabled, destination }) => {
+            const config = (await chrome.runtime.sendMessage({ type: 'GET_CONFIG' })).data;
+            config.platforms[platformId].enabled = true;
+            config.platforms[platformId].redirectTarget = 'custom';
+            config.platforms[platformId].customSettings = { alternativeUrl: destination };
+            config.platforms[platformId].hardBlocks[setting] = enabled;
+            const response = await chrome.runtime.sendMessage({ type: 'SET_CONFIG', payload: config });
+            if (!response.success) throw new Error(response.error);
+          }, { platformId, setting, enabled, destination });
+          await page.goto(source).catch(error => {
+            if (!/ERR_ABORTED|interrupted/.test(String(error))) throw error;
+          });
+          await expect(page).toHaveURL(enabled ? destination : source);
+          await expect(page.locator('h1')).toHaveText(enabled ? 'Alternative page' : 'Allowed surface');
+        }
+      }
+    } finally {
+      await page.close();
+      await popup.evaluate(async config => {
+        const response = await chrome.runtime.sendMessage({ type: 'SET_CONFIG', payload: config });
+        if (!response.success) throw new Error(response.error);
+      }, originalConfig);
+      await popup.close();
+      await context.unroute('https://example.org/**');
+      await context.unroute('https://www.youtube.com/**', sourceFixture);
+      await context.unroute('https://www.reddit.com/**', sourceFixture);
+    }
+  });
+
 });

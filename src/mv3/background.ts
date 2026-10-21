@@ -105,6 +105,7 @@ function getRuleFingerprint(config: StorageSchema): string {
           enabled: config.platforms[platformId].enabled,
           redirectTarget: config.platforms[platformId].redirectTarget,
           alternativeUrl: config.platforms[platformId].customSettings?.alternativeUrl,
+          hardBlocks: config.platforms[platformId].hardBlocks,
         },
       ])
     ),

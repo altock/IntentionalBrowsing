@@ -105,12 +105,14 @@ describe('popup config updates', () => {
     expect(sendMessage).toHaveBeenCalled();
   });
 
-  it('keeps an in-progress address when the redirect selection finishes saving', async () => {
+  it('keeps the input and focus when a save confirms unrelated concurrent changes', async () => {
     const stored = cloneConfig(DEFAULT_STORAGE);
     const sendMessage = await mountPopup(() => ({ success: true, data: cloneConfig(stored) }));
     let finishSave: () => void = () => {};
     sendMessage.mockImplementationOnce((message: ExtensionMessage, callback: (response: ExtensionResponse<StorageSchema>) => void) => {
       const saved = applyConfigUpdate(stored, message.payload as any);
+      saved.platforms.instagram = { ...saved.platforms.instagram, enabled: false };
+      saved.stats = { blocksTotal: 1, lastBlock: 123 };
       finishSave = () => callback({ success: true, data: saved });
     });
     const select = document.querySelector('.platform[data-platform="reddit"] select') as HTMLSelectElement;
@@ -118,10 +120,13 @@ describe('popup config updates', () => {
     select.dispatchEvent(new Event('change', { bubbles: true }));
     const input = document.querySelector('.platform[data-platform="reddit"] input[type="url"]') as HTMLInputElement;
     input.value = 'https://example.com/in-progress';
+    input.focus();
     finishSave();
-    await Promise.resolve();
+    await vi.waitFor(() => expect((document.querySelector('.platform[data-platform="instagram"] input[type="checkbox"]') as HTMLInputElement).checked).toBe(false));
     expect(document.querySelector('.platform[data-platform="reddit"] input[type="url"]')).toBe(input);
     expect(input.value).toBe('https://example.com/in-progress');
+    expect(document.activeElement).toBe(input);
+    expect((document.querySelector('.platform[data-platform="instagram"] input[type="checkbox"]') as HTMLInputElement).checked).toBe(false);
   });
 
 });

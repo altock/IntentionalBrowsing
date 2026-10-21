@@ -103,6 +103,11 @@ function render(config: StorageSchema): void {
   const popup = document.querySelector('.popup')!;
   const globalToggle = document.getElementById('global-enabled') as HTMLInputElement;
   const platformsContainer = document.getElementById('platforms')!;
+  const previousForms = new Map(
+    Array.from(platformsContainer.querySelectorAll<HTMLFormElement>('.alternative-form'))
+      .map(form => [form.dataset.platform, form] as const)
+  );
+  const focusedInput = document.activeElement as HTMLElement | null;
 
   globalToggle.checked = config.globalEnabled;
   popup.classList.toggle('disabled', !config.globalEnabled);
@@ -194,44 +199,50 @@ function render(config: StorageSchema): void {
       settingsDiv.appendChild(settingLabel);
 
       if (platformConfig.redirectTarget === 'custom') {
-        const form = document.createElement('form');
-        form.className = 'alternative-form setting-row-stacked';
-        form.dataset.platform = platformId;
-        const label = document.createElement('label');
-        label.className = 'setting-row setting-row-stacked';
-        const caption = document.createElement('span');
-        caption.className = 'setting-label';
-        caption.textContent = 'Go here when blocked:';
-        const input = document.createElement('input');
-        input.type = 'url';
-        input.required = true;
-        input.className = 'redirect-input';
-        input.name = 'alternativeUrl';
-        input.placeholder = 'https://example.com';
-        input.value = String(platformConfig.customSettings?.alternativeUrl ?? '');
-        const help = document.createElement('span');
-        help.className = 'setting-label';
-        help.id = `alternative-help-${platformId}`;
-        help.textContent = input.value ? 'Saved. Blocked visits go here automatically.' : 'Enter a web address and save. Until then, the block page is shown.';
-        help.setAttribute('aria-live', 'polite');
-        input.setAttribute('aria-describedby', help.id);
-        label.append(caption, input);
-        const save = document.createElement('button');
-        save.type = 'submit';
-        save.textContent = 'Save page';
-        form.append(label, help, save);
-        form.addEventListener('submit', (event) => {
-          event.preventDefault();
-          const url = normalizeAlternativeUrl(input.value);
-          if (!url) {
-            input.setCustomValidity('Enter an http or https address that is not a blocked feed.');
-            input.reportValidity();
-            return;
-          }
-          void saveUpdate({ kind: 'platform-custom-settings', platformId, customSettings: { alternativeUrl: url } });
-        });
-        input.addEventListener('input', () => input.setCustomValidity(''));
-        settingsDiv.appendChild(form);
+        const savedUrl = String(platformConfig.customSettings?.alternativeUrl ?? '');
+        const previousForm = previousForms.get(platformId);
+        if (previousForm?.querySelector('input')?.defaultValue === savedUrl) {
+          settingsDiv.appendChild(previousForm);
+        } else {
+          const form = document.createElement('form');
+          form.className = 'alternative-form setting-row-stacked';
+          form.dataset.platform = platformId;
+          const label = document.createElement('label');
+          label.className = 'setting-row setting-row-stacked';
+          const caption = document.createElement('span');
+          caption.className = 'setting-label';
+          caption.textContent = 'Go here when blocked:';
+          const input = document.createElement('input');
+          input.type = 'url';
+          input.required = true;
+          input.className = 'redirect-input';
+          input.name = 'alternativeUrl';
+          input.placeholder = 'https://example.com';
+          input.defaultValue = savedUrl;
+          const help = document.createElement('span');
+          help.className = 'setting-label';
+          help.id = `alternative-help-${platformId}`;
+          help.textContent = input.value ? 'Saved. Blocked visits go here automatically.' : 'Enter a web address and save. Until then, the block page is shown.';
+          help.setAttribute('aria-live', 'polite');
+          input.setAttribute('aria-describedby', help.id);
+          label.append(caption, input);
+          const save = document.createElement('button');
+          save.type = 'submit';
+          save.textContent = 'Save page';
+          form.append(label, help, save);
+          form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const url = normalizeAlternativeUrl(input.value);
+            if (!url) {
+              input.setCustomValidity('Enter an http or https address that is not a blocked feed.');
+              input.reportValidity();
+              return;
+            }
+            void saveUpdate({ kind: 'platform-custom-settings', platformId, customSettings: { alternativeUrl: url } });
+          });
+          input.addEventListener('input', () => input.setCustomValidity(''));
+          settingsDiv.appendChild(form);
+        }
       }
 
       if (platformId === 'twitter') {
@@ -261,6 +272,9 @@ function render(config: StorageSchema): void {
 
     platformsContainer.appendChild(platformDiv);
   });
+  if (focusedInput?.isConnected && document.activeElement !== focusedInput) {
+    focusedInput.focus({ preventScroll: true });
+  }
 }
 
 async function handleGlobalToggle(enabled: boolean): Promise<void> {

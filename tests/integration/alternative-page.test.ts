@@ -29,7 +29,7 @@ for (const browser of ['chrome', 'firefox'] as const) {
           onChanged: event(),
         },
         declarativeNetRequest: {
-          RuleActionType: { REDIRECT: 'redirect' }, ResourceType: { MAIN_FRAME: 'main_frame' },
+          RuleActionType: { REDIRECT: 'redirect', ALLOW: 'allow' }, ResourceType: { MAIN_FRAME: 'main_frame' },
           updateEnabledRulesets: async () => {},
           updateDynamicRules: async ({ addRules }: { addRules: any[] }) => { dynamicRules = addRules; },
         },
@@ -85,7 +85,32 @@ for (const browser of ['chrome', 'firefox'] as const) {
         await update(platformId!, 'platform-enabled', { enabled: false });
         expect((await message({ type: 'CHECK_URL', payload: blocked })).data.shouldBlock).toBe(false);
       }
+      // Changing only a per-surface block must rebuild Chrome's rules, including allow overrides.
+      for (const [platformId, source, setting] of [
+        ['youtube', 'https://www.youtube.com/shorts/abc', 'shorts'],
+        ['twitter', 'https://x.com/home', 'home'],
+        ['reddit', 'https://www.reddit.com/home/nested?sort=top', 'home'],
+        ['reddit', 'https://www.reddit.com/all/nested', 'all'],
+      ]) {
+        for (const enabled of [true, false, true]) {
+          const config = (await message({ type: 'GET_CONFIG' })).data;
+          config.platforms[platformId].enabled = true;
+          config.platforms[platformId].redirectTarget = 'custom';
+          config.platforms[platformId].customSettings = { alternativeUrl: 'https://example.com/read' };
+          config.platforms[platformId].hardBlocks[setting] = enabled;
+          expect((await message({ type: 'SET_CONFIG', payload: config })).success).toBe(true);
+          expect((await message({ type: 'CHECK_URL', payload: source })).data.shouldBlock).toBe(enabled);
+          if (browser === 'chrome') {
+            const matching = dynamicRules.filter(rule => new RegExp(rule.condition.regexFilter).test(source));
+            expect(matching.length).toBeGreaterThan(0);
+            expect(matching.every(rule => rule.action.type === (enabled ? 'redirect' : 'allow'))).toBe(true);
+          } else {
+            expect(beforeRequest!({ url: source })?.redirectUrl).toBe(enabled ? 'https://example.com/read' : undefined);
+          }
+        }
+      }
       expect(buildRedirectUrl('https://x.com/', 'https://example.com/read')).toBe('https://example.com/read');
+      await message({ type: 'GET_CONFIG' }); // Drain queued block statistics before removing the browser API.
     });
   });
 }

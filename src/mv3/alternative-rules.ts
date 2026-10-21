@@ -1,12 +1,12 @@
 import { PLATFORM_RULES } from '../shared/config.js';
-import { normalizeAlternativeUrl } from '../shared/rules.js';
+import { getHardBlockSetting, normalizeAlternativeUrl } from '../shared/rules.js';
 import type { PlatformId, StorageSchema } from '../shared/types.js';
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Higher-priority rules let alternative pages override the built-in redirects. */
+/** Override built-in redirects with disabled surfaces or alternative destinations. */
 export function getAlternativeRules(config: StorageSchema): {
   removeRuleIds: number[];
   addRules: chrome.declarativeNetRequest.Rule[];
@@ -20,7 +20,11 @@ export function getAlternativeRules(config: StorageSchema): {
       if (pattern.mode === 'allow') return;
       const ruleId = 20000 + platformIndex * 100 + index;
       removeRuleIds.push(ruleId);
-      if (!config.globalEnabled || !platform.enabled || platform.redirectTarget !== 'custom') return;
+      if (!config.globalEnabled || !platform.enabled) return;
+      const pathname = pattern.pattern.replace(/\/\*\*?$/, '') || '/';
+      const blockSetting = pattern.mode === 'hard' ? getHardBlockSetting(id as PlatformId, pathname) : null;
+      const disabled = blockSetting !== null && platform.hardBlocks[blockSetting] === false;
+      if (!disabled && platform.redirectTarget !== 'custom') return;
       const hosts = rules.hosts.map(escapeRegex).join('|');
       const segments = pattern.pattern.split('/').filter(Boolean);
       const path = segments.map(segment => segment === '**' ? '(?:/[^?#]*)?' :
@@ -28,7 +32,8 @@ export function getAlternativeRules(config: StorageSchema): {
       addRules.push({
         id: ruleId,
         priority: 2,
-        action: {
+        // Omitting the custom redirect alone would leave lower-priority static blocks active.
+        action: disabled ? { type: chrome.declarativeNetRequest.RuleActionType.ALLOW } : {
           type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
           redirect: destination ? { url: destination } : { extensionPath: '/ui/blocked.html' },
         },
